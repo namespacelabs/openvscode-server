@@ -1,0 +1,244 @@
+name: OpenVSCode Server Release
+
+on:
+  push:
+    tags:
+      - 'openvscode-server-v*'
+      - 'openvscode-server-insiders-v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # On a tag push this is the release tag (e.g. openvscode-server-v1.109.5[-N]);
+  # empty for manual build-only runs.
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+  QUALITY: ${{ contains(github.ref_name, 'insiders') && 'insider' || 'stable' }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.os_name }}-${{ matrix.vscode_arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: linux
+            runner: ubuntu-latest
+            vscode_arch: x64
+            npm_arch: x64
+          - os_name: linux
+            runner: ubuntu-latest
+            vscode_arch: arm64
+            npm_arch: arm64
+          - os_name: darwin
+            runner: macos-15
+            vscode_arch: arm64
+            npm_arch: arm64
+    env:
+      OS_NAME: ${{ matrix.os_name }}
+      VSCODE_ARCH: ${{ matrix.vscode_arch }}
+      NPM_REGISTRY: https://registry.npmjs.org
+      npm_config_arch: ${{ matrix.npm_arch }}
+      CXXFLAGS: ${{ matrix.os_name == 'darwin' && '-DFMT_CONSTEVAL=' || '' }}
+      DISABLE_V8_COMPILE_CACHE: 1
+    steps:
+      - name: Set up QEMU
+        if: matrix.os_name == 'linux'
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up swap
+        if: matrix.os_name == 'linux'
+        uses: thejerrybao/setup-swap-space@466d59798fb9263b9c2331c83cf71f9b7bfd0c78
+        with:
+          swap-space-path: /swapfile
+          swap-size-gb: 8
+          remove-existing-swap-files: true
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 20
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Linux system services
+        if: matrix.os_name == 'linux'
+        run: |
+          set -e
+          ./build/azure-pipelines/linux/apt-retry.sh sudo apt-get update
+          ./build/azure-pipelines/linux/apt-retry.sh sudo apt-get install -y \
+            pkg-config dbus xvfb libgtk-3-0 libxkbfile-dev libkrb5-dev libgbm1 rpm
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      - name: Compute node modules cache key
+        id: node_modules_cache_key
+        run: |
+          mkdir -p .build
+          value=$(node build/azure-pipelines/common/computeNodeModulesCacheKey.ts \
+            "$OS_NAME" "$VSCODE_ARCH" "$(node -p process.arch)")
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
+      - name: Cache node modules
+        id: cache_node_modules
+        uses: actions/cache@v5
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-${{ matrix.os_name }}-${{ matrix.vscode_arch }}-node_modules-${{ steps.node_modules_cache_key.outputs.value }}
+
+      - name: Get npm cache directory path
+        id: npm_cache_dir_path
+        if: steps.cache_node_modules.outputs.cache-hit != 'true'
+        run: echo "dir=$(npm config get cache)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache npm directory
+        if: steps.cache_node_modules.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.npm_cache_dir_path.outputs.dir }}
+          key: ${{ runner.os }}-${{ matrix.os_name }}-${{ matrix.vscode_arch }}-npm-${{ steps.node_modules_cache_key.outputs.value }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.os_name }}-${{ matrix.vscode_arch }}-npm-
+
+      - name: Install dependencies
+        if: steps.cache_node_modules.outputs.cache-hit != 'true'
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+        run: |
+          set -e
+          npm config set registry "$NPM_REGISTRY"
+          cd build
+          for i in {1..5}; do
+            npm ci && break
+            if [ "$i" -eq 5 ]; then
+              echo 'Build dependency installation failed too many times'
+              exit 1
+            fi
+          done
+          cd ..
+          if [ "$OS_NAME" = linux ]; then
+            source ./build/azure-pipelines/linux/setup-env.sh
+          fi
+          node build/npm/preinstall.ts
+          for i in {1..5}; do
+            npm ci && break
+            if [ "$i" -eq 5 ]; then
+              echo 'Dependency installation failed too many times'
+              exit 1
+            fi
+          done
+
+      - name: Update product.json
+        run: |
+          set -e
+          name_short=$(jq --raw-output '.nameShort' product.json)
+          name_long=$(jq --raw-output '.nameLong' product.json)
+          if [ "$QUALITY" = insider ]; then
+            name_short="$name_short - Insiders"
+            name_long="$name_long - Insiders"
+          fi
+          jq --arg quality "$QUALITY" \
+            --arg name_short "$name_short" \
+            --arg name_long "$name_long" \
+            '.quality = $quality | .nameShort = $name_short | .nameLong = $name_long' \
+            product.json > product.json.tmp
+          mv product.json.tmp product.json
+          jq '{quality,nameLong,nameShort}' product.json
+
+      - name: Prepare for distribution
+        run: |
+          set -e
+          base_commit=$(git log --pretty='%H' --max-count=1 \
+            --grep='code web server initial commit')
+          if [ -z "$base_commit" ]; then
+            git fetch --unshallow
+            base_commit=$(git log --pretty='%H' --max-count=1 \
+              --grep='code web server initial commit')
+          fi
+          if [ -z "$base_commit" ]; then
+            echo 'Could not find base commit'
+            exit 1
+          fi
+          distro_commit=$(git rev-parse "${base_commit}"~)
+          echo "BUILD_SOURCEVERSION=$distro_commit" >> "$GITHUB_ENV"
+          echo "distro_commit: $distro_commit"
+
+      - name: Compile VS Code
+        run: |
+          set -e
+          npm run gulp core-ci
+          npm run gulp extensions-ci
+
+      - name: Build web server
+        run: |
+          set -e
+          npm run gulp "vscode-reh-web-${OS_NAME}-${VSCODE_ARCH}-min-ci"
+
+      - name: Bundle tarball
+        id: bundle_tar
+        run: |
+          set -e
+          if [ -n "$RELEASE_TAG" ]; then
+            base="$RELEASE_TAG"
+          else
+            version=$(node -p "require('./package.json').version")
+            base="openvscode-server-v${version}"
+          fi
+          name="${base}-${OS_NAME}-${VSCODE_ARCH}"
+          build_dir="../vscode-reh-web-${OS_NAME}-${VSCODE_ARCH}"
+          # The gulp task's output root is the directory that holds the server
+          # entrypoint (bin/ + product.json). Locate it so the tarball is a flat
+          # server tree matching upstream, regardless of any wrapper directory.
+          if [ -f "$build_dir/product.json" ] && [ -d "$build_dir/bin" ]; then
+            server_root="$build_dir"
+          else
+            server_root=$(dirname "$(find "$build_dir" -maxdepth 4 -type d -name bin \
+              -exec test -f '{}/../product.json' ';' -print -quit)")
+          fi
+          if [ ! -f "$server_root/product.json" ]; then
+            echo "Could not locate server root under $build_dir"; ls -laR "$build_dir" | head -50; exit 1
+          fi
+          rm -rf "$name"
+          mv "$server_root" "$name"
+          tar -czf "$name.tar.gz" -C . "$name"
+          echo "Packaged $name.tar.gz with root entries:"; tar -tzf "$name.tar.gz" | awk -F/ 'NF>1{print $2}' | sort -u
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.os_name }}-${{ matrix.vscode_arch }}
+          path: ${{ steps.bundle_tar.outputs.name }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  github-release:
+    name: Publish GitHub release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: OpenVSCode Server ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, 'insiders') }}
+          files: artifacts/**/*.tar.gz
