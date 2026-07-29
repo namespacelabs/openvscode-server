@@ -2,18 +2,42 @@
 
 ## Cutting a release
 
-Releasing is just tagging. Every release tag **must** carry a trailing `-N`
-revision (see [the `-N` suffix](#the-required--n-revision-suffix) below). Create
-and push a tag on the commit you want to ship:
+A release is a build of an **upstream Gitpod version**, shipped under a Namespace
+release tag. You cut one by running the `OpenVSCode Server Release` workflow and
+telling it which upstream tag to build and which revision this is.
+
+The workflow runs from `main` (so the release logic is always current), checks
+out the chosen [`gitpod-io/openvscode-server`](https://github.com/gitpod-io/openvscode-server)
+tag on a throwaway runner, builds it, and — when publishing — creates the
+release tag and GitHub release. **It never changes `main` or any branch**; the
+upstream sources only ever exist in the runner's workspace.
+
+Run it from **Actions → OpenVSCode Server Release → Run workflow**, or with the
+CLI:
 
 ```bash
-git tag openvscode-server-v1.109.5-1
-git push origin openvscode-server-v1.109.5-1
+gh workflow run "OpenVSCode Server Release" \
+  -f upstream_ref=openvscode-server-v1.109.5 \
+  -f revision=1 \
+  -f quality=stable \
+  -f publish=true
 ```
 
-The `OpenVSCode Server Release` workflow triggers on that tag, builds Linux
-`x64`, Linux `arm64` and macOS `arm64`, and publishes a GitHub release named
-after the tag with all three tarballs attached:
+Inputs:
+
+- `upstream_ref` — the Gitpod tag (or ref) to build, e.g.
+  `openvscode-server-v1.109.5`.
+- `revision` — the Namespace revision `N` (see
+  [the `-N` suffix](#the-required--n-revision-suffix) below); starts at `1`.
+- `quality` — `stable` (default) or `insider`. Insiders are published as a
+  GitHub pre-release.
+- `publish` — `true` creates the tag + release; **uncheck it for a build-only
+  validation run** that just uploads the tarballs (they expire after 7 days).
+
+The built version comes from the upstream tag's `package.json`, and the release
+tag is `openvscode-server-v<version>-<N>` (insiders:
+`openvscode-server-insiders-v<version>-<N>`). The run builds Linux `x64`, Linux
+`arm64` and macOS `arm64`, and attaches all three tarballs to the release:
 
 ```text
 <tag>-linux-x64.tar.gz
@@ -21,13 +45,9 @@ after the tag with all three tarballs attached:
 <tag>-darwin-arm64.tar.gz
 ```
 
-- The tag name is the release name, so it is fully under your control.
-- For an insiders build, tag `openvscode-server-insiders-v<version>-N`; it is
-  published as a pre-release.
-
-To validate a build without publishing, run the workflow manually
-(**Actions → OpenVSCode Server Release → Run workflow**) — a `workflow_dispatch`
-run builds the artifacts but does not create a release.
+The created tag points at the exact upstream commit that was built, so a release
+is always traceable to its Gitpod source. The workflow refuses to run if that
+tag already exists, or if `upstream_ref` doesn't reference the version it builds.
 
 ### The required `-N` revision suffix
 
@@ -54,25 +74,33 @@ Each is an independent tag, so the number is entirely yours to manage.
 ## Version parity with Gitpod
 
 This fork mirrors [gitpod-io/openvscode-server](https://github.com/gitpod-io/openvscode-server),
-which tags releases as `openvscode-server-v<vscode-version>`. Use the same
-VS Code version for the tag you are shipping (plus our required `-N` revision) so
-our releases line up with theirs — e.g. their `openvscode-server-v1.109.5`
-becomes our `openvscode-server-v1.109.5-1`.
+which tags releases as `openvscode-server-v<vscode-version>`. Because you pass
+their tag straight to the workflow's `upstream_ref`, our releases line up with
+theirs automatically — their `openvscode-server-v1.109.5` becomes our
+`openvscode-server-v1.109.5-1`.
+
+Gitpod cuts stable releases from dedicated release commits, **not** from their
+`main` (which is bleeding-edge). We do the same: the release always builds the
+upstream *release tag* you name, regardless of what `main` currently is — so you
+never have to move `main` to a particular version to ship it.
 
 ## Staying current with Gitpod
 
-We track `gitpod-io/openvscode-server`; our own patches live as commits on top
-of it. To pull in Gitpod's newer code, merge their branch or a release tag —
-our patches ride along, no rebasing required:
+Our `main` tracks `gitpod-io/openvscode-server` for sources and CI, with our
+fork-owned files (this release workflow, `namespace-ci.yml`, docs) layered on
+top. To pull in Gitpod's newer code, merge their branch or a tag — our files
+ride along, no rebasing required:
 
 ```bash
 git remote add upstream https://github.com/gitpod-io/openvscode-server.git   # once
 git fetch upstream --tags
-git merge openvscode-server-v1.109.5    # the upstream tag; or: git merge upstream/main
+git merge upstream/main    # or a specific tag, e.g. openvscode-server-v1.109.5
 # resolve any conflicts, then push
 ```
 
-Then cut the release by tagging as above.
+Keeping `main` current is **independent of releasing** — you can release any
+upstream version at any time via the workflow's `upstream_ref` input without
+touching `main`.
 
 ## Verifying a release
 
