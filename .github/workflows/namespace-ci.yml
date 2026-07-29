@@ -2,9 +2,9 @@ name: Namespace CI
 
 # Fork-owned CI. Self-contained so upstream (microsoft/vscode) syncs stay
 # conflict-free: it does not modify any inherited workflow. It runs the
-# compile gate and the Linux (x64) unit/integration tests on GitHub-hosted
-# runners, and reuses the inherited macOS (arm64) test workflow, which already
-# targets a hosted runner.
+# compile gate and the Linux (x64) unit/integration tests on Namespace
+# (nscloud) runners, and reuses the inherited macOS (arm64) test workflow,
+# which targets a GitHub-hosted runner.
 
 on:
   pull_request:
@@ -26,7 +26,10 @@ env:
 jobs:
   compile:
     name: Compile
-    runs-on: ubuntu-22.04
+    runs-on:
+      - nscloud-ubuntu-22.04-amd64-16x32-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-ovsc-ci-compile
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -36,26 +39,15 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Prepare node_modules cache key
-        run: mkdir -p .build && node build/azure-pipelines/common/computeNodeModulesCacheKey.ts compile $(node -p process.arch) > .build/packagelockhash
-
-      - name: Restore node_modules cache
-        id: cache-node-modules
-        uses: actions/cache/restore@v5
+      - name: Cache npm downloads (Namespace Cache Volume)
+        uses: namespacelabs/nscloud-cache-action@v1
         with:
-          path: .build/node_modules_cache
-          key: "node_modules-compile-${{ hashFiles('.build/packagelockhash') }}"
-
-      - name: Extract node_modules cache
-        if: steps.cache-node-modules.outputs.cache-hit == 'true'
-        run: tar -xzf .build/node_modules_cache/cache.tgz
+          cache: npm
 
       - name: Install build tools
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: sudo apt update -y && sudo apt install -y build-essential pkg-config libx11-dev libx11-xcb-dev libxkbfile-dev libnotify-bin libkrb5-dev
 
       - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: |
           set -e
 
@@ -71,14 +63,6 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create node_modules archive
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: |
-          set -e
-          node build/azure-pipelines/common/listNodeModules.ts .build/node_modules_list.txt
-          mkdir -p .build/node_modules_cache
-          tar -czf .build/node_modules_cache/cache.tgz --files-from .build/node_modules_list.txt
 
       - name: Type check /build/ scripts
         run: npm run typecheck
