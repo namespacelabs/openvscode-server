@@ -39,7 +39,7 @@ concurrency:
 jobs:
   prepare:
     name: Resolve release metadata
-    runs-on: ubuntu-latest
+    runs-on: nscloud-ubuntu-22.04-amd64-4x8
     outputs:
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
@@ -88,15 +88,24 @@ jobs:
       matrix:
         include:
           - os_name: linux
-            runner: ubuntu-latest
+            runner:
+              - nscloud-ubuntu-22.04-amd64-16x32-with-cache
+              - nscloud-cache-size-20gb
+              - nscloud-cache-tag-ovsc-release-linux-x64
             vscode_arch: x64
             npm_arch: x64
           - os_name: linux
-            runner: ubuntu-latest
+            runner:
+              - nscloud-ubuntu-22.04-amd64-16x32-with-cache
+              - nscloud-cache-size-20gb
+              - nscloud-cache-tag-ovsc-release-linux-arm64
             vscode_arch: arm64
             npm_arch: arm64
           - os_name: darwin
-            runner: macos-15
+            runner:
+              - nscloud-macos-tahoe-arm64-12x28-with-cache
+              - nscloud-cache-size-20gb
+              - nscloud-cache-tag-ovsc-release-darwin-arm64
             vscode_arch: arm64
             npm_arch: arm64
     env:
@@ -106,19 +115,12 @@ jobs:
       npm_config_arch: ${{ matrix.npm_arch }}
       CXXFLAGS: ${{ matrix.os_name == 'darwin' && '-DFMT_CONSTEVAL=' || '' }}
       DISABLE_V8_COMPILE_CACHE: 1
+      NODE_OPTIONS: ${{ matrix.os_name == 'darwin' && '--max-old-space-size=12288' || '' }}
       QUALITY: ${{ inputs.quality }}
     steps:
       - name: Set up QEMU
         if: matrix.os_name == 'linux'
         uses: docker/setup-qemu-action@v4
-
-      - name: Set up swap
-        if: matrix.os_name == 'linux'
-        uses: thejerrybao/setup-swap-space@466d59798fb9263b9c2331c83cf71f9b7bfd0c78
-        with:
-          swap-space-path: /swapfile
-          swap-size-gb: 8
-          remove-existing-swap-files: true
 
       - uses: actions/checkout@v6
         with:
@@ -129,6 +131,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
+
+      - name: Cache npm downloads (Namespace Cache Volume)
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: npm
 
       - name: Setup Linux system services
         if: matrix.os_name == 'linux'
@@ -156,20 +163,6 @@ jobs:
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-${{ matrix.os_name }}-${{ matrix.vscode_arch }}-${{ inputs.upstream_ref }}-node_modules-${{ steps.node_modules_cache_key.outputs.value }}
-
-      - name: Get npm cache directory path
-        id: npm_cache_dir_path
-        if: steps.cache_node_modules.outputs.cache-hit != 'true'
-        run: echo "dir=$(npm config get cache)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache npm directory
-        if: steps.cache_node_modules.outputs.cache-hit != 'true'
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.npm_cache_dir_path.outputs.dir }}
-          key: ${{ runner.os }}-${{ matrix.os_name }}-${{ matrix.vscode_arch }}-${{ inputs.upstream_ref }}-npm-${{ steps.node_modules_cache_key.outputs.value }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.os_name }}-${{ matrix.vscode_arch }}-${{ inputs.upstream_ref }}-npm-
 
       - name: Install dependencies
         if: steps.cache_node_modules.outputs.cache-hit != 'true'
@@ -284,7 +277,7 @@ jobs:
     name: Publish GitHub release
     needs: [prepare, build]
     if: ${{ inputs.publish }}
-    runs-on: ubuntu-latest
+    runs-on: nscloud-ubuntu-22.04-amd64-4x8
     permissions:
       contents: write
     steps:
