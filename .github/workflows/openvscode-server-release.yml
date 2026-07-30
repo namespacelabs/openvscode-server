@@ -149,23 +149,7 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Compute node modules cache key
-        id: node_modules_cache_key
-        run: |
-          mkdir -p .build
-          value=$(node build/azure-pipelines/common/computeNodeModulesCacheKey.ts \
-            "$OS_NAME" "$VSCODE_ARCH" "$(node -p process.arch)")
-          echo "value=$value" >> "$GITHUB_OUTPUT"
-
-      - name: Cache node modules
-        id: cache_node_modules
-        uses: actions/cache@v5
-        with:
-          path: '**/node_modules'
-          key: ${{ runner.os }}-${{ matrix.os_name }}-${{ matrix.vscode_arch }}-${{ inputs.upstream_ref }}-node_modules-${{ steps.node_modules_cache_key.outputs.value }}
-
       - name: Install dependencies
-        if: steps.cache_node_modules.outputs.cache-hit != 'true'
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
@@ -266,7 +250,7 @@ jobs:
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v6
+        uses: namespace-actions/upload-artifact@v1
         with:
           name: ${{ matrix.os_name }}-${{ matrix.vscode_arch }}
           path: ${{ steps.bundle_tar.outputs.name }}.tar.gz
@@ -320,7 +304,7 @@ jobs:
             "refs/tags/${TAG}"
 
       - name: Download artifacts
-        uses: actions/download-artifact@v6
+        uses: namespace-actions/download-artifact@v2
         with:
           path: artifacts
 
