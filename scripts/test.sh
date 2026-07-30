@@ -12,8 +12,7 @@ cd $ROOT
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	NAME=`node -p "require('./product.json').nameLong"`
-	EXE_NAME=`node -p "require('./product.json').nameShort"`
-	CODE="./.build/electron/$NAME.app/Contents/MacOS/$EXE_NAME"
+	CODE="./.build/electron/$NAME.app/Contents/MacOS/Electron"
 else
 	NAME=`node -p "require('./product.json').applicationName"`
 	CODE=".build/electron/$NAME"
@@ -25,9 +24,7 @@ VSCODECRASHDIR=$ROOT/.build/crashes
 test -d node_modules || npm i
 
 # Get electron
-if [[ -z "${VSCODE_SKIP_PRELAUNCH}" ]]; then
-	npm run electron
-fi
+npm run electron
 
 # Unit Tests
 if [[ "$OSTYPE" == "darwin"* ]]; then

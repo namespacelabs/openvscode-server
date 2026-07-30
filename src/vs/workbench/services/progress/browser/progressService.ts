@@ -23,8 +23,7 @@ import { IViewsService } from '../../views/common/viewsService.js';
 import { IPaneCompositePartService } from '../../panecomposite/browser/panecomposite.js';
 import { stripIcons } from '../../../../base/common/iconLabels.js';
 import { IUserActivityService } from '../../userActivity/common/userActivityService.js';
-import { createWorkbenchDialogOptions } from '../../../browser/parts/dialogs/dialog.js';
-import { IHostService } from '../../host/browser/host.js';
+import { createWorkbenchDialogOptions } from '../../../../platform/dialogs/browser/dialog.js';
 
 export class ProgressService extends Disposable implements IProgressService {
 
@@ -40,7 +39,6 @@ export class ProgressService extends Disposable implements IProgressService {
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@IUserActivityService private readonly userActivityService: IUserActivityService,
-		@IHostService private readonly hostService: IHostService,
 	) {
 		super();
 	}
@@ -569,7 +567,7 @@ export class ProgressService extends Disposable implements IProgressService {
 					cancelId: buttons.length - 1,
 					disableCloseAction: options.sticky,
 					disableDefaultAction: options.sticky
-				}, this.keybindingService, this.layoutService, this.hostService)
+				}, this.keybindingService, this.layoutService)
 			);
 
 			disposables.add(dialog);

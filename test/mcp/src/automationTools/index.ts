@@ -25,7 +25,6 @@ import { applyLocalizationTools } from './localization.js';
 import { applyTaskTools } from './task.js';
 import { applyProfilerTools } from './profiler.js';
 import { applyChatTools } from './chat.js';
-import { applyWindowTools } from './windows.js';
 import { ApplicationService } from '../application';
 
 /**
@@ -94,9 +93,6 @@ export function applyAllTools(server: McpServer, appService: ApplicationService)
 	// Chat Tools
 	tools = tools.concat(applyChatTools(server, appService));
 
-	// Window Management Tools (for multi-window support)
-	tools = tools.concat(applyWindowTools(server, appService));
-
 	// Return all registered tools
 	return tools;
 }
@@ -121,6 +117,5 @@ export {
 	applyLocalizationTools,
 	applyTaskTools,
 	applyProfilerTools,
-	applyChatTools,
-	applyWindowTools
+	applyChatTools
 };

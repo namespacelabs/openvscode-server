@@ -23,6 +23,7 @@ import * as nls from '../../../../nls.js';
 
 const MAX_CHANGES = 100;
 const MAX_DIFFS_SIZE_BYTES = 900 * 1024;
+const MAX_SESSIONS_WITH_FULL_DIFFS = 5;
 const MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB per file
 /**
  * Regex to match `url = <remote-url>` lines in git config.
@@ -373,83 +374,7 @@ function computeDiffHunks(
 }
 
 /**
- * Captures lightweight repository metadata (branch, commit, remote) from SCM providers.
- * No file I/O or diff computation - reads only from already-loaded SCM observables.
- * Used on chat message submission to record the point-in-time commit state.
- */
-export function captureRepoMetadata(scmService: ISCMService): IExportableRepoData | undefined {
-	const repositories = [...scmService.repositories];
-	if (repositories.length === 0) {
-		return undefined;
-	}
-
-	const repository = repositories[0];
-	const rootUri = repository.provider.rootUri;
-	if (!rootUri) {
-		return undefined;
-	}
-
-	let localBranch: string | undefined;
-	let localHeadCommit: string | undefined;
-	let remoteTrackingBranch: string | undefined;
-	let remoteHeadCommit: string | undefined;
-	let remoteBaseBranch: string | undefined;
-
-	const historyProvider = repository.provider.historyProvider?.get();
-	if (historyProvider) {
-		const historyItemRef = historyProvider.historyItemRef.get();
-		localBranch = historyItemRef?.name;
-		localHeadCommit = historyItemRef?.revision;
-
-		const historyItemRemoteRef = historyProvider.historyItemRemoteRef.get();
-		if (historyItemRemoteRef) {
-			remoteTrackingBranch = historyItemRemoteRef.name;
-			remoteHeadCommit = historyItemRemoteRef.revision;
-		}
-
-		const historyItemBaseRef = historyProvider.historyItemBaseRef.get();
-		if (historyItemBaseRef) {
-			remoteBaseBranch = historyItemBaseRef.name;
-		}
-	}
-
-	// Determine workspace type and sync status without file I/O.
-	// Cannot determine remoteUrl/remoteVendor or detect plain-folder here (requires reading .git/config).
-	// The full captureRepoInfo at export time will produce accurate classification.
-	let workspaceType: IExportableRepoData['workspaceType'];
-	let syncStatus: IExportableRepoData['syncStatus'];
-
-	if (remoteTrackingBranch || remoteHeadCommit || remoteBaseBranch) {
-		workspaceType = 'remote-git';
-
-		if (!remoteTrackingBranch) {
-			syncStatus = 'unpublished';
-		} else if (localHeadCommit && remoteHeadCommit && localHeadCommit === remoteHeadCommit) {
-			syncStatus = 'synced';
-		} else {
-			syncStatus = 'unpushed';
-		}
-	} else {
-		// No remote refs available; conservatively classify as local-git
-		workspaceType = 'local-git';
-		syncStatus = 'local-only';
-	}
-
-	return {
-		workspaceType,
-		syncStatus,
-		localBranch,
-		remoteTrackingBranch,
-		remoteBaseBranch,
-		localHeadCommit,
-		remoteHeadCommit,
-		diffsStatus: 'notCaptured',
-	};
-}
-
-/**
- * Captures full repository state including working tree diffs.
- * Performs file I/O and diff computation - should only be called on explicit user action (e.g., export).
+ * Captures repository state from the first available SCM repository.
  */
 export async function captureRepoInfo(scmService: ISCMService, fileService: IFileService): Promise<IExportableRepoData | undefined> {
 	const repositories = [...scmService.repositories];
@@ -639,9 +564,7 @@ export async function captureRepoInfo(scmService: ISCMService, fileService: IFil
 }
 
 /**
- * Captures lightweight repository metadata for chat sessions on first message.
- * Only reads from already-loaded SCM provider observables, no file I/O.
- * Full diff capture is deferred to export time (see chatExportZip.ts).
+ * Captures repository information for chat sessions on creation and first message.
  */
 export class ChatRepoInfoContribution extends Disposable implements IWorkbenchContribution {
 
@@ -653,6 +576,7 @@ export class ChatRepoInfoContribution extends Disposable implements IWorkbenchCo
 		@IChatService private readonly chatService: IChatService,
 		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
 		@ISCMService private readonly scmService: ISCMService,
+		@IFileService private readonly fileService: IFileService,
 		@ILogService private readonly logService: ILogService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) {
@@ -662,12 +586,12 @@ export class ChatRepoInfoContribution extends Disposable implements IWorkbenchCo
 			this.registerConfigurationIfInternal();
 		}));
 
-		this._register(this.chatService.onDidSubmitRequest(({ chatSessionResource }) => {
+		this._register(this.chatService.onDidSubmitRequest(async ({ chatSessionResource }) => {
 			const model = this.chatService.getSession(chatSessionResource);
 			if (!model) {
 				return;
 			}
-			this.captureAndSetRepoMetadata(model);
+			await this.captureAndSetRepoData(model);
 		}));
 	}
 
@@ -688,7 +612,7 @@ export class ChatRepoInfoContribution extends Disposable implements IWorkbenchCo
 			properties: {
 				[ChatConfiguration.RepoInfoEnabled]: {
 					type: 'boolean',
-					description: nls.localize('chat.repoInfo.enabled', "Controls whether lightweight repository metadata (branch, commit, remotes) is captured when a chat request is submitted for internal diagnostics."),
+					description: nls.localize('chat.repoInfo.enabled', "Controls whether repository information (branch, commit, working tree diffs) is captured at the start of chat sessions for internal diagnostics."),
 					default: false,
 				}
 			}
@@ -698,15 +622,12 @@ export class ChatRepoInfoContribution extends Disposable implements IWorkbenchCo
 		this.logService.debug('[ChatRepoInfo] Configuration registered for internal user');
 	}
 
-	/**
-	 * Captures lightweight metadata (branch, commit, remote refs) on first message.
-	 * Synchronous, no file I/O. Reads only from SCM provider observables.
-	 */
-	private captureAndSetRepoMetadata(model: IChatModel): void {
+	private async captureAndSetRepoData(model: IChatModel): Promise<void> {
 		if (!this.chatEntitlementService.isInternal) {
 			return;
 		}
 
+		// Check if repo info capture is enabled via configuration
 		if (!this.configurationService.getValue<boolean>(ChatConfiguration.RepoInfoEnabled)) {
 			return;
 		}
@@ -716,17 +637,55 @@ export class ChatRepoInfoContribution extends Disposable implements IWorkbenchCo
 		}
 
 		try {
-			const metadata = captureRepoMetadata(this.scmService);
-			if (metadata) {
-				model.setRepoData(metadata);
-				if (!metadata.localHeadCommit) {
-					this.logService.warn('[ChatRepoInfo] Captured repo metadata without commit hash - git history may not be ready');
+			const repoData = await captureRepoInfo(this.scmService, this.fileService);
+			if (repoData) {
+				model.setRepoData(repoData);
+				if (!repoData.localHeadCommit && repoData.workspaceType !== 'plain-folder') {
+					this.logService.warn('[ChatRepoInfo] Captured repo data without commit hash - git history may not be ready');
 				}
+
+				// Trim diffs from older sessions to manage storage
+				this.trimOldSessionDiffs();
 			} else {
 				this.logService.debug('[ChatRepoInfo] No SCM repository available for chat session');
 			}
 		} catch (error) {
-			this.logService.warn('[ChatRepoInfo] Failed to capture repo metadata:', error);
+			this.logService.warn('[ChatRepoInfo] Failed to capture repo info:', error);
+		}
+	}
+
+	/**
+	 * Trims diffs from older sessions, keeping full diffs only for the most recent sessions.
+	 */
+	private trimOldSessionDiffs(): void {
+		try {
+			// Get all sessions with repoData that has diffs
+			const sessionsWithDiffs: { model: IChatModel; timestamp: number }[] = [];
+
+			for (const model of this.chatService.chatModels.get()) {
+				if (model.repoData?.diffs && model.repoData.diffs.length > 0 && model.repoData.diffsStatus === 'included') {
+					sessionsWithDiffs.push({ model, timestamp: model.timestamp });
+				}
+			}
+
+			// Sort by timestamp descending (most recent first)
+			sessionsWithDiffs.sort((a, b) => b.timestamp - a.timestamp);
+
+			// Trim diffs from sessions beyond the limit
+			for (let i = MAX_SESSIONS_WITH_FULL_DIFFS; i < sessionsWithDiffs.length; i++) {
+				const { model } = sessionsWithDiffs[i];
+				if (model.repoData) {
+					const trimmedRepoData: IExportableRepoData = {
+						...model.repoData,
+						diffs: undefined,
+						diffsStatus: 'trimmedForStorage'
+					};
+					model.setRepoData(trimmedRepoData);
+					this.logService.trace(`[ChatRepoInfo] Trimmed diffs from older session: ${model.sessionResource.toString()}`);
+				}
+			}
+		} catch (error) {
+			this.logService.warn('[ChatRepoInfo] Failed to trim old session diffs:', error);
 		}
 	}
 }

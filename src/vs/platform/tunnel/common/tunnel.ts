@@ -216,7 +216,6 @@ export class DisposableTunnel {
 
 	dispose(): Promise<void> {
 		this._onDispose.fire();
-		this._onDispose.dispose();
 		return this._dispose();
 	}
 }
@@ -224,11 +223,11 @@ export class DisposableTunnel {
 export abstract class AbstractTunnelService extends Disposable implements ITunnelService {
 	declare readonly _serviceBrand: undefined;
 
-	private _onTunnelOpened = this._register(new Emitter<RemoteTunnel>());
+	private _onTunnelOpened: Emitter<RemoteTunnel> = new Emitter();
 	public onTunnelOpened: Event<RemoteTunnel> = this._onTunnelOpened.event;
-	private _onTunnelClosed = this._register(new Emitter<{ host: string; port: number }>());
+	private _onTunnelClosed: Emitter<{ host: string; port: number }> = new Emitter();
 	public onTunnelClosed: Event<{ host: string; port: number }> = this._onTunnelClosed.event;
-	private _onAddedTunnelProvider = this._register(new Emitter<void>());
+	private _onAddedTunnelProvider: Emitter<void> = new Emitter();
 	public onAddedTunnelProvider: Event<void> = this._onAddedTunnelProvider.event;
 	protected readonly _tunnels = new Map</*host*/ string, Map</* port */ number, { refcount: number; readonly value: Promise<RemoteTunnel | string | undefined> }>>();
 	protected _tunnelProvider: ITunnelProvider | undefined;

@@ -87,8 +87,8 @@ export interface IFileStatusInfo {
 	overwrittenBy?: string;
 	/** Extension ID if this file comes from an extension */
 	extensionId?: string;
-	/** If false, hidden from / menu (user-invocable: false) */
-	userInvocable?: boolean;
+	/** If true, hidden from / menu (user-invokable: false) */
+	userInvokable?: boolean;
 	/** If true, won't be auto-loaded by agent (disable-model-invocation: true) */
 	disableModelInvocation?: boolean;
 }
@@ -468,7 +468,7 @@ function convertDiscoveryResultToFileStatus(result: IPromptFileDiscoveryResult):
 			name: result.name,
 			storage: result.storage,
 			extensionId: result.extensionId,
-			userInvocable: result.userInvocable,
+			userInvokable: result.userInvokable,
 			disableModelInvocation: result.disableModelInvocation
 		};
 	}
@@ -636,8 +636,7 @@ export function formatStatusOutput(
 						const prefix = isLast ? TREE_END : TREE_BRANCH;
 						const filePath = getRelativePath(file.uri, workspaceFolders);
 						if (file.status === 'loaded') {
-							const flags = getSkillFlags(file, info.type);
-							lines.push(`${prefix} [\`${fileName}\`](${filePath})${flags}<br>`);
+							lines.push(`${prefix} [\`${fileName}\`](${filePath})<br>`);
 						} else if (file.status === 'overwritten') {
 							lines.push(`${prefix} ${ICON_WARN} [\`${fileName}\`](${filePath}) - *${nls.localize('status.overwrittenByHigherPriority', 'Overwritten by higher priority file')}*<br>`);
 						} else {
@@ -791,8 +790,8 @@ function getSkillFlags(file: IFileStatusInfo, type: PromptsType): string {
 		flags.push(`${ICON_MANUAL} *${nls.localize('status.skill.manualOnly', 'manual only')}*`);
 	}
 
-	// userInvocable: false means hidden from / menu
-	if (file.userInvocable === false) {
+	// userInvokable: false means hidden from / menu
+	if (file.userInvokable === false) {
 		flags.push(`${ICON_HIDDEN} *${nls.localize('status.skill.hiddenFromMenu', 'hidden from menu')}*`);
 	}
 

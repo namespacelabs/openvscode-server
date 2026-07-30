@@ -101,7 +101,6 @@ export interface IExtensionPromptPath extends IPromptPathBase {
 	readonly source: ExtensionAgentSourceType;
 	readonly name?: string;
 	readonly description?: string;
-	readonly when?: string;
 }
 export interface ILocalPromptPath extends IPromptPathBase {
 	readonly storage: PromptsStorage.local;
@@ -126,16 +125,16 @@ export type IAgentSource = {
  * - 'hidden': neither in picker nor usable as subagent
  */
 export type ICustomAgentVisibility = {
-	readonly userInvocable: boolean;
-	readonly agentInvocable: boolean;
+	readonly userInvokable: boolean;
+	readonly agentInvokable: boolean;
 };
 
 export function isCustomAgentVisibility(obj: unknown): obj is ICustomAgentVisibility {
 	if (typeof obj !== 'object' || obj === null) {
 		return false;
 	}
-	const v = obj as { userInvocable?: unknown; agentInvocable?: unknown };
-	return typeof v.userInvocable === 'boolean' && typeof v.agentInvocable === 'boolean';
+	const v = obj as { userInvokable?: unknown; agentInvokable?: unknown };
+	return typeof v.userInvokable === 'boolean' && typeof v.agentInvokable === 'boolean';
 }
 
 export enum Target {
@@ -182,7 +181,7 @@ export interface ICustomAgent {
 	readonly target: Target;
 
 	/**
-	 * What visibility the agent has (user invocable, subagent invocable).
+	 * What visibility the agent has (user invokable, subagent invokable).
 	 */
 	readonly visibility: ICustomAgentVisibility;
 
@@ -236,7 +235,7 @@ export interface IAgentSkill {
 	 * If false, the skill is hidden from the / menu.
 	 * Use for background knowledge users shouldn't invoke directly.
 	 */
-	readonly userInvocable: boolean;
+	readonly userInvokable: boolean;
 }
 
 /**
@@ -293,8 +292,8 @@ export interface IPromptFileDiscoveryResult {
 	readonly duplicateOf?: URI;
 	/** Extension ID if from extension */
 	readonly extensionId?: string;
-	/** Whether the skill is user-invocable in the / menu (set user-invocable: false to hide it) */
-	readonly userInvocable?: boolean;
+	/** If true, the skill is hidden from the / menu (user-invokable: false) */
+	readonly userInvokable?: boolean;
 	/** If true, the skill won't be automatically loaded by the agent (disable-model-invocation: true) */
 	readonly disableModelInvocation?: boolean;
 }
@@ -392,7 +391,7 @@ export interface IPromptsService extends IDisposable {
 	 * Internal: register a contributed file. Returns a disposable that removes the contribution.
 	 * Not intended for extension authors; used by contribution point handler.
 	 */
-	registerContributedFile(type: PromptsType, uri: URI, extension: IExtensionDescription, name: string | undefined, description: string | undefined, when?: string): IDisposable;
+	registerContributedFile(type: PromptsType, uri: URI, extension: IExtensionDescription, name: string | undefined, description: string | undefined): IDisposable;
 
 
 	getPromptLocationLabel(promptPath: IPromptPath): string;

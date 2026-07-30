@@ -29,12 +29,6 @@ export interface IModelPickerDelegate {
 	readonly currentModel: IObservable<ILanguageModelChatMetadataAndIdentifier | undefined>;
 	setModel(model: ILanguageModelChatMetadataAndIdentifier): void;
 	getModels(): ILanguageModelChatMetadataAndIdentifier[];
-	canManageModels(): boolean;
-	/**
-	 * Whether to show curated models from the control manifest (featured, unavailable, upgrade prompts, etc.).
-	 * Defaults to `true`.
-	 */
-	showCuratedModels?(): boolean;
 }
 
 type ChatModelChangeClassification = {
@@ -62,9 +56,10 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 					checked: true,
 					category: DEFAULT_MODEL_PICKER_CATEGORY,
 					class: undefined,
+					description: localize('chat.modelPicker.auto.detail', "Best for your request based on capacity and performance."),
 					tooltip: localize('chat.modelPicker.auto', "Auto"),
 					label: localize('chat.modelPicker.auto', "Auto"),
-					hover: { content: localize('chat.modelPicker.auto.description', "Automatically selects the best model for your task based on capacity."), position: pickerOptions.hoverPosition },
+					hover: { content: localize('chat.modelPicker.auto.description', "Automatically selects the best model for your task based on context and complexity."), position: pickerOptions.hoverPosition },
 					run: () => { }
 				} satisfies IActionWidgetDropdownAction];
 			}
@@ -171,11 +166,10 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 			run: () => { }
 		};
 
-		const baseActionBarActionProvider = getModelPickerActionBarActionProvider(commandService, chatEntitlementService, productService);
 		const modelPickerActionWidgetOptions: Omit<IActionWidgetDropdownOptions, 'label' | 'labelRenderer'> = {
 			actionProvider: modelDelegateToWidgetActionsProvider(delegate, telemetryService, pickerOptions),
-			actionBarActionProvider: { getActions: () => delegate.canManageModels() ? baseActionBarActionProvider.getActions() : [] },
-			reporter: { id: 'ChatModelPicker', name: 'ChatModelPicker', includeOptions: true },
+			actionBarActionProvider: getModelPickerActionBarActionProvider(commandService, chatEntitlementService, productService),
+			reporter: { name: 'ChatModelPicker', includeOptions: true },
 		};
 
 		super(actionWithLabel, widgetOptions ?? modelPickerActionWidgetOptions, pickerOptions, actionWidgetService, keybindingService, contextKeyService, telemetryService);

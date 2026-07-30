@@ -12,7 +12,7 @@ import { RawContextKey, IContextKey, IContextKeyService } from '../../../../plat
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorOpenContext } from '../../../common/editor.js';
 import { BrowserEditorInput } from './browserEditorInput.js';
@@ -21,7 +21,7 @@ import { IBrowserViewModel } from '../../browserView/common/browserView.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
-import { IBrowserViewKeyDownEvent, IBrowserViewNavigationEvent, IBrowserViewLoadError, BrowserNewPageLocation } from '../../../../platform/browserView/common/browserView.js';
+import { IBrowserViewKeyDownEvent, IBrowserViewNavigationEvent, IBrowserViewLoadError } from '../../../../platform/browserView/common/browserView.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -43,16 +43,13 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { IChatRequestVariableEntry } from '../../chat/common/attachments/chatVariableEntries.js';
-import { IElementAncestor, IElementData, IBrowserTargetLocator, getDisplayNameFromOuterHTML } from '../../../../platform/browserElements/common/browserElements.js';
+import { IBrowserTargetLocator, getDisplayNameFromOuterHTML } from '../../../../platform/browserElements/common/browserElements.js';
 import { logBrowserOpen } from './browserViewTelemetry.js';
-import { URI } from '../../../../base/common/uri.js';
 
 export const CONTEXT_BROWSER_CAN_GO_BACK = new RawContextKey<boolean>('browserCanGoBack', false, localize('browser.canGoBack', "Whether the browser can go back"));
 export const CONTEXT_BROWSER_CAN_GO_FORWARD = new RawContextKey<boolean>('browserCanGoForward', false, localize('browser.canGoForward', "Whether the browser can go forward"));
 export const CONTEXT_BROWSER_FOCUSED = new RawContextKey<boolean>('browserFocused', true, localize('browser.editorFocused', "Whether the browser editor is focused"));
 export const CONTEXT_BROWSER_STORAGE_SCOPE = new RawContextKey<string>('browserStorageScope', '', localize('browser.storageScope', "The storage scope of the current browser view"));
-export const CONTEXT_BROWSER_HAS_URL = new RawContextKey<boolean>('browserHasUrl', false, localize('browser.hasUrl', "Whether the browser has a URL loaded"));
-export const CONTEXT_BROWSER_HAS_ERROR = new RawContextKey<boolean>('browserHasError', false, localize('browser.hasError', "Whether the browser has a load error"));
 export const CONTEXT_BROWSER_DEVTOOLS_OPEN = new RawContextKey<boolean>('browserDevToolsOpen', false, localize('browser.devToolsOpen', "Whether developer tools are open for the current browser view"));
 export const CONTEXT_BROWSER_ELEMENT_SELECTION_ACTIVE = new RawContextKey<boolean>('browserElementSelectionActive', false, localize('browser.elementSelectionActive', "Whether element selection is currently active"));
 
@@ -107,7 +104,7 @@ class BrowserNavigationBar extends Disposable {
 		// URL input
 		this._urlInput = $<HTMLInputElement>('input.browser-url-input');
 		this._urlInput.type = 'text';
-		this._urlInput.placeholder = localize('browser.urlPlaceholder', "Enter a URL");
+		this._urlInput.placeholder = localize('browser.urlPlaceholder', "Enter URL...");
 
 		// Create actions toolbar (right side) with scoped context
 		const actionsContainer = $('.browser-actions-toolbar');
@@ -188,8 +185,6 @@ export class BrowserEditor extends EditorPane {
 	private _canGoBackContext!: IContextKey<boolean>;
 	private _canGoForwardContext!: IContextKey<boolean>;
 	private _storageScopeContext!: IContextKey<string>;
-	private _hasUrlContext!: IContextKey<boolean>;
-	private _hasErrorContext!: IContextKey<boolean>;
 	private _devToolsOpenContext!: IContextKey<boolean>;
 	private _elementSelectionActiveContext!: IContextKey<boolean>;
 
@@ -197,7 +192,6 @@ export class BrowserEditor extends EditorPane {
 	private readonly _inputDisposables = this._register(new DisposableStore());
 	private overlayManager: BrowserOverlayManager | undefined;
 	private _elementSelectionCts: CancellationTokenSource | undefined;
-	private _consoleSessionCts: CancellationTokenSource | undefined;
 	private _screenshotTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(
@@ -228,8 +222,6 @@ export class BrowserEditor extends EditorPane {
 		this._canGoBackContext = CONTEXT_BROWSER_CAN_GO_BACK.bindTo(contextKeyService);
 		this._canGoForwardContext = CONTEXT_BROWSER_CAN_GO_FORWARD.bindTo(contextKeyService);
 		this._storageScopeContext = CONTEXT_BROWSER_STORAGE_SCOPE.bindTo(contextKeyService);
-		this._hasUrlContext = CONTEXT_BROWSER_HAS_URL.bindTo(contextKeyService);
-		this._hasErrorContext = CONTEXT_BROWSER_HAS_ERROR.bindTo(contextKeyService);
 		this._devToolsOpenContext = CONTEXT_BROWSER_DEVTOOLS_OPEN.bindTo(contextKeyService);
 		this._elementSelectionActiveContext = CONTEXT_BROWSER_ELEMENT_SELECTION_ACTIVE.bindTo(contextKeyService);
 
@@ -350,11 +342,7 @@ export class BrowserEditor extends EditorPane {
 		this.setBackgroundImage(this._model.screenshot);
 
 		if (context.newInGroup) {
-			if (this._model.url) {
-				this._browserContainer.focus();
-			} else {
-				this.focusUrlInput();
-			}
+			this.focusUrlInput();
 		}
 
 		// Start / stop screenshots when the model visibility changes
@@ -371,13 +359,6 @@ export class BrowserEditor extends EditorPane {
 
 			// Update navigation bar and context keys from model
 			this.updateNavigationState(navEvent);
-
-			// Ensure a console session is active while a page URL is loaded.
-			if (navEvent.url) {
-				this.startConsoleSession();
-			} else {
-				this.stopConsoleSession();
-			}
 		}));
 
 		this._inputDisposables.add(this._model.onDidChangeLoadingState(() => {
@@ -397,27 +378,18 @@ export class BrowserEditor extends EditorPane {
 			this._devToolsOpenContext.set(e.isDevToolsOpen);
 		}));
 
-		this._inputDisposables.add(this._model.onDidRequestNewPage(({ resource, location, position }) => {
-			logBrowserOpen(this.telemetryService, (() => {
-				switch (location) {
-					case BrowserNewPageLocation.Background: return 'browserLinkBackground';
-					case BrowserNewPageLocation.Foreground: return 'browserLinkForeground';
-					case BrowserNewPageLocation.NewWindow: return 'browserLinkNewWindow';
-				}
-			})());
+		this._inputDisposables.add(this._model.onDidRequestNewPage(({ url, name, background }) => {
+			logBrowserOpen(this.telemetryService, background ? 'browserLinkBackground' : 'browserLinkForeground');
 
-			const targetGroup = location === BrowserNewPageLocation.NewWindow ? AUX_WINDOW_GROUP : this.group;
+			// Open a new browser tab for the requested URL
+			const browserUri = BrowserViewUri.forUrl(url, name ? `${input.id}-${name}` : undefined);
 			this.editorService.openEditor({
-				resource: URI.from(resource),
+				resource: browserUri,
 				options: {
 					pinned: true,
-					inactive: location === BrowserNewPageLocation.Background,
-					auxiliary: {
-						bounds: position,
-						compact: true
-					}
+					inactive: background
 				}
-			}, targetGroup);
+			}, this.group);
 		}));
 
 		this._inputDisposables.add(this.overlayManager!.onDidChangeOverlayState(() => {
@@ -435,11 +407,6 @@ export class BrowserEditor extends EditorPane {
 		this.layoutBrowserContainer();
 		this.updateVisibility();
 		this.doScreenshot();
-
-		// Start console log capture session if a URL is loaded
-		if (this._model.url) {
-			this.startConsoleSession();
-		}
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
@@ -535,7 +502,6 @@ export class BrowserEditor extends EditorPane {
 		}
 
 		const error: IBrowserViewLoadError | undefined = this._model.error;
-		this._hasErrorContext.set(!!error);
 		if (error) {
 			// Update error content
 
@@ -620,15 +586,10 @@ export class BrowserEditor extends EditorPane {
 	}
 
 	/**
-	 * Show the find widget, optionally pre-populated with selected text from the browser view
+	 * Show the find widget
 	 */
-	async showFind(): Promise<void> {
-		// Get selected text from the browser view to pre-populate the search box.
-		const selectedText = await this._model?.getSelectedText();
-
-		// Only use the selected text if it doesn't contain newlines (single line selection)
-		const textToReveal = selectedText && !/[\r\n]/.test(selectedText) ? selectedText : undefined;
-		this._findWidget.value.reveal(textToReveal);
+	showFind(): void {
+		this._findWidget.value.reveal();
 		this._findWidget.value.layout(this._findWidgetContainer.clientWidth);
 	}
 
@@ -711,23 +672,18 @@ export class BrowserEditor extends EditorPane {
 			// Prepare HTML/CSS context
 			const displayName = getDisplayNameFromOuterHTML(elementData.outerHTML);
 			const attachCss = this.configurationService.getValue<boolean>('chat.sendElementsToChat.attachCSS');
-			const value = this.createElementContextValue(elementData, displayName, attachCss);
+			let value = (attachCss ? 'Attached HTML and CSS Context' : 'Attached HTML Context') + '\n\n' + elementData.outerHTML;
+			if (attachCss) {
+				value += '\n\n' + elementData.computedStyle;
+			}
 
 			toAttach.push({
 				id: 'element-' + Date.now(),
 				name: displayName,
 				fullName: displayName,
 				value: value,
-				modelDescription: attachCss
-					? 'Structured browser element context with HTML path, attributes, and computed styles.'
-					: 'Structured browser element context with HTML path and attributes.',
 				kind: 'element',
 				icon: ThemeIcon.fromId(Codicon.layout.id),
-				ancestors: elementData.ancestors,
-				attributes: elementData.attributes,
-				computedStyles: attachCss ? elementData.computedStyles : undefined,
-				dimensions: elementData.dimensions,
-				innerText: elementData.innerText,
 			});
 
 			// Attach screenshot if enabled
@@ -782,181 +738,6 @@ export class BrowserEditor extends EditorPane {
 	}
 
 	/**
-	 * Grab the current console logs from the active console session and attach them to chat.
-	 */
-	async addConsoleLogsToChat(): Promise<void> {
-		const resourceUri = this.input?.resource;
-		if (!resourceUri) {
-			return;
-		}
-
-		const locator: IBrowserTargetLocator = { browserViewId: BrowserViewUri.getId(resourceUri) };
-
-		try {
-			const logs = await this.browserElementsService.getConsoleLogs(locator);
-			if (!logs) {
-				return;
-			}
-
-			const toAttach: IChatRequestVariableEntry[] = [];
-			toAttach.push({
-				id: 'console-logs-' + Date.now(),
-				name: localize('consoleLogs', 'Console Logs'),
-				fullName: localize('consoleLogs', 'Console Logs'),
-				value: logs,
-				modelDescription: 'Console logs captured from Integrated Browser.',
-				kind: 'element',
-				icon: ThemeIcon.fromId(Codicon.terminal.id),
-			});
-
-			const widget = await this.chatWidgetService.revealWidget() ?? this.chatWidgetService.lastFocusedWidget;
-			widget?.attachmentModel?.addContext(...toAttach);
-		} catch (error) {
-			this.logService.error('BrowserEditor.addConsoleLogsToChat: Failed to get console logs', error);
-		}
-	}
-
-	/**
-	 * Start a console session to capture logs from the browser view.
-	 */
-	private startConsoleSession(): void {
-		// Don't restart if already running
-		if (this._consoleSessionCts) {
-			return;
-		}
-
-		const resourceUri = this.input?.resource;
-		if (!resourceUri || !this._model?.url) {
-			return;
-		}
-
-		const cts = new CancellationTokenSource();
-		this._consoleSessionCts = cts;
-		const locator: IBrowserTargetLocator = { browserViewId: BrowserViewUri.getId(resourceUri) };
-
-		this.browserElementsService.startConsoleSession(cts.token, locator).catch(error => {
-			if (!cts.token.isCancellationRequested) {
-				this.logService.error('BrowserEditor: Failed to start console session', error);
-			}
-		});
-	}
-
-	/**
-	 * Stop the active console session.
-	 */
-	private stopConsoleSession(): void {
-		if (this._consoleSessionCts) {
-			this._consoleSessionCts.dispose(true);
-			this._consoleSessionCts = undefined;
-		}
-	}
-
-	private createElementContextValue(elementData: IElementData, displayName: string, attachCss: boolean): string {
-		const sections: string[] = [];
-		sections.push('Attached Element Context from Integrated Browser');
-		sections.push(`Element: ${displayName}`);
-
-		const htmlPath = this.formatElementPath(elementData.ancestors);
-		if (htmlPath) {
-			sections.push(`HTML Path:\n${htmlPath}`);
-		}
-
-		const attributeTable = this.formatElementMap(elementData.attributes);
-		if (attributeTable) {
-			sections.push(`Attributes:\n${attributeTable}`);
-		}
-
-		if (attachCss) {
-			const computedStyleTable = this.formatElementMap(elementData.computedStyles);
-			if (computedStyleTable) {
-				sections.push(`Computed Styles:\n${computedStyleTable}`);
-			}
-		}
-
-		if (elementData.dimensions) {
-			const { top, left, width, height } = elementData.dimensions;
-			sections.push(
-				`Dimensions:\n- top: ${Math.round(top)}px\n- left: ${Math.round(left)}px\n- width: ${Math.round(width)}px\n- height: ${Math.round(height)}px`
-			);
-		}
-
-		const innerText = elementData.innerText?.trim();
-		if (innerText) {
-			sections.push(`Inner Text:\n\`\`\`text\n${innerText}\n\`\`\``);
-		}
-
-		sections.push(`Outer HTML:\n\`\`\`html\n${elementData.outerHTML}\n\`\`\``);
-
-		if (attachCss) {
-			sections.push(`Full Computed CSS:\n\`\`\`css\n${elementData.computedStyle}\n\`\`\``);
-		}
-
-		return sections.join('\n\n');
-	}
-
-	private formatElementPath(ancestors: readonly IElementAncestor[] | undefined): string | undefined {
-		if (!ancestors || ancestors.length === 0) {
-			return undefined;
-		}
-
-		return ancestors
-			.map(ancestor => {
-				const classes = ancestor.classNames?.length ? `.${ancestor.classNames.join('.')}` : '';
-				const id = ancestor.id ? `#${ancestor.id}` : '';
-				return `${ancestor.tagName}${id}${classes}`;
-			})
-			.join(' > ');
-	}
-
-	private formatElementMap(entries: Readonly<Record<string, string>> | undefined): string | undefined {
-		if (!entries || Object.keys(entries).length === 0) {
-			return undefined;
-		}
-
-		const normalizedEntries = new Map(Object.entries(entries));
-		const lines: string[] = [];
-
-		const marginShorthand = this.createBoxShorthand(normalizedEntries, 'margin');
-		if (marginShorthand) {
-			lines.push(`- margin: ${marginShorthand}`);
-		}
-
-		const paddingShorthand = this.createBoxShorthand(normalizedEntries, 'padding');
-		if (paddingShorthand) {
-			lines.push(`- padding: ${paddingShorthand}`);
-		}
-
-		for (const [name, value] of Array.from(normalizedEntries.entries()).sort(([a], [b]) => a.localeCompare(b))) {
-			lines.push(`- ${name}: ${value}`);
-		}
-
-		return lines.join('\n');
-	}
-
-	private createBoxShorthand(entries: Map<string, string>, propertyName: 'margin' | 'padding'): string | undefined {
-		const topKey = `${propertyName}-top`;
-		const rightKey = `${propertyName}-right`;
-		const bottomKey = `${propertyName}-bottom`;
-		const leftKey = `${propertyName}-left`;
-
-		const top = entries.get(topKey);
-		const right = entries.get(rightKey);
-		const bottom = entries.get(bottomKey);
-		const left = entries.get(leftKey);
-
-		if (top === undefined || right === undefined || bottom === undefined || left === undefined) {
-			return undefined;
-		}
-
-		entries.delete(topKey);
-		entries.delete(rightKey);
-		entries.delete(bottomKey);
-		entries.delete(leftKey);
-
-		return `${top} ${right} ${bottom} ${left}`;
-	}
-
-	/**
 	 * Update navigation state and context keys
 	 */
 	private updateNavigationState(event: IBrowserViewNavigationEvent): void {
@@ -966,7 +747,6 @@ export class BrowserEditor extends EditorPane {
 		// Update context keys for command enablement
 		this._canGoBackContext.set(event.canGoBack);
 		this._canGoForwardContext.set(event.canGoForward);
-		this._hasUrlContext.set(!!event.url);
 
 		// Update visibility (welcome screen, error, browser view)
 		this.updateVisibility();
@@ -988,11 +768,15 @@ export class BrowserEditor extends EditorPane {
 		content.appendChild(title);
 
 		const subtitle = $('.browser-welcome-subtitle');
-		const chatEnabled = this.contextKeyService.getContextKeyValue<boolean>(ChatContextKeys.enabled.key);
-		subtitle.textContent = chatEnabled
-			? localize('browser.welcomeSubtitleChat', "Use Add Element to Chat to reference UI elements in chat prompts.")
-			: localize('browser.welcomeSubtitle', "Enter a URL above to get started.");
+		subtitle.textContent = localize('browser.welcomeSubtitle', "Enter a URL above to get started.");
 		content.appendChild(subtitle);
+
+		const chatEnabled = this.contextKeyService.getContextKeyValue<boolean>(ChatContextKeys.enabled.key);
+		if (chatEnabled) {
+			const tip = $('.browser-welcome-tip');
+			tip.textContent = localize('browser.welcomeTip', "Tip: Use Add Element to Chat to reference UI elements in chat prompts.");
+			content.appendChild(tip);
+		}
 
 		container.appendChild(content);
 		return container;
@@ -1104,9 +888,6 @@ export class BrowserEditor extends EditorPane {
 			this._elementSelectionCts = undefined;
 		}
 
-		// Cancel any active console session
-		this.stopConsoleSession();
-
 		// Cancel any scheduled screenshots
 		this.cancelScheduledScreenshot();
 
@@ -1119,8 +900,6 @@ export class BrowserEditor extends EditorPane {
 
 		this._canGoBackContext.reset();
 		this._canGoForwardContext.reset();
-		this._hasUrlContext.reset();
-		this._hasErrorContext.reset();
 		this._storageScopeContext.reset();
 		this._devToolsOpenContext.reset();
 		this._elementSelectionActiveContext.reset();

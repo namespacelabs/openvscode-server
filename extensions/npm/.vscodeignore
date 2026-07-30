@@ -1,6 +1,7 @@
 src/**
 out/**
-tsconfig*.json
+tsconfig.json
 .vscode/**
-esbuild*
+extension.webpack.config.js
+extension-browser.webpack.config.js
 package-lock.json

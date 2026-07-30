@@ -75,7 +75,6 @@ export interface IEnvironment {
 	useHostProxy?: boolean;
 	skipWorkspaceStorageLock?: boolean;
 	extensionLogLevel?: [string, LogLevel][];
-	isSessionsWindow?: boolean;
 }
 
 export interface IStaticWorkspaceData {
@@ -84,6 +83,7 @@ export interface IStaticWorkspaceData {
 	transient?: boolean;
 	configuration?: UriComponents | null;
 	isUntitled?: boolean | null;
+	isAgentSessionsWorkspace?: boolean;
 }
 
 export interface MessagePortLike {

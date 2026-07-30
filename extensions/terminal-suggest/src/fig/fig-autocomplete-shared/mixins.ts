@@ -88,7 +88,7 @@ const mergeNamedObjectArrays = <T extends NamedObject>(
 		if (!partial) {
 			throw new Error('Invalid object passed to merge');
 		}
-		const existingNames = makeArray(partial.name).filter((name) => Object.hasOwn(existingNameIndexMap, name));
+		const existingNames = makeArray(partial.name).filter((name) => name in existingNameIndexMap);
 		if (existingNames.length === 0) {
 			mergedObjects.push(partial);
 		} else {

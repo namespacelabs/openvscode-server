@@ -145,12 +145,7 @@ export abstract class BaseConfigurationResolverService extends AbstractVariableR
 
 	override async resolveWithInteractionReplace(folder: IWorkspaceFolderData | undefined, config: unknown, section?: string, variables?: IStringDictionary<string>, target?: ConfigurationTarget): Promise<unknown> {
 		const parsed = ConfigurationResolverExpression.parse(config);
-		const resolved = await this.resolveWithInteraction(folder, parsed, section, variables, target);
-
-		// Skip if input variable was canceled
-		if (resolved === undefined) {
-			return undefined;
-		}
+		await this.resolveWithInteraction(folder, parsed, section, variables, target);
 
 		return parsed.toObject();
 	}

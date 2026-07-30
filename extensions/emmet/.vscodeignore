@@ -2,8 +2,9 @@ test/**
 test-workspace/**
 src/**
 out/**
-tsconfig*.json
-esbuild*
+tsconfig.json
+extension.webpack.config.js
+extension-browser.webpack.config.js
 CONTRIBUTING.md
 cgmanifest.json
 package-lock.json

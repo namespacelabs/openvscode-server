@@ -76,7 +76,6 @@ export class StickyScrollController extends Disposable implements IEditorContrib
 	private _minRebuildFromLine: number | undefined;
 	private _mouseTarget: EventTarget | null = null;
 	private _cursorPositionListener: IDisposable | undefined;
-	private _positionLineNumber: number | undefined;
 
 	private readonly _onDidChangeStickyScrollHeight = this._register(new Emitter<{ height: number }>());
 	public readonly onDidChangeStickyScrollHeight = this._onDidChangeStickyScrollHeight.event;
@@ -479,11 +478,7 @@ export class StickyScrollController extends Disposable implements IEditorContrib
 		const lineNumberOption = this._editor.getOption(EditorOption.lineNumbers);
 		if (lineNumberOption.renderType === RenderLineNumbersType.Relative) {
 			if (!this._cursorPositionListener) {
-				this._cursorPositionListener = this._editor.onDidChangeCursorPosition((e) => {
-					if (this._positionLineNumber === e.position.lineNumber) {
-						return;
-					}
-					this._positionLineNumber = e.position.lineNumber;
+				this._cursorPositionListener = this._editor.onDidChangeCursorPosition(() => {
 					this._showEndForLine = undefined;
 					this._renderStickyScroll(0);
 				});

@@ -141,7 +141,7 @@ export class GettingStartedPage extends EditorPane {
 
 	private detailsScrollbar: DomScrollableElement | undefined;
 
-	private buildSlideThrottle = this._register(new Throttler());
+	private buildSlideThrottle: Throttler = new Throttler();
 
 	private container: HTMLElement;
 
@@ -217,6 +217,7 @@ export class GettingStartedPage extends EditorPane {
 		this.gettingStartedCategories = this.gettingStartedService.getWalkthroughs();
 
 		this._register(this.dispatchListeners);
+		this.buildSlideThrottle = new Throttler();
 
 		const rerender = () => {
 			this.gettingStartedCategories = this.gettingStartedService.getWalkthroughs();
@@ -285,14 +286,14 @@ export class GettingStartedPage extends EditorPane {
 						badgeelement.parentElement?.setAttribute('aria-checked', 'true');
 						badgeelement.classList.remove(...ThemeIcon.asClassNameArray(gettingStartedUncheckedCodicon));
 						badgeelement.classList.add('complete', ...ThemeIcon.asClassNameArray(gettingStartedCheckedCodicon));
-						badgeelement.setAttribute('aria-label', localize('stepDone', "{0}: Completed", step.title));
+						badgeelement.setAttribute('aria-label', localize('stepDone', "Checkbox for Step {0}: Completed", step.title));
 					}
 					else {
 						badgeelement.setAttribute('aria-checked', 'false');
 						badgeelement.parentElement?.setAttribute('aria-checked', 'false');
 						badgeelement.classList.remove('complete', ...ThemeIcon.asClassNameArray(gettingStartedCheckedCodicon));
 						badgeelement.classList.add(...ThemeIcon.asClassNameArray(gettingStartedUncheckedCodicon));
-						badgeelement.setAttribute('aria-label', localize('stepNotDone', "{0}: Not completed", step.title));
+						badgeelement.setAttribute('aria-label', localize('stepNotDone', "Checkbox for Step {0}: Not completed", step.title));
 					}
 				});
 				if (step.done) {
@@ -1558,8 +1559,8 @@ export class GettingStartedPage extends EditorPane {
 							'role': 'checkbox',
 							'aria-checked': step.done ? 'true' : 'false',
 							'aria-label': step.done
-								? localize('stepDone', "{0}: Completed", step.title)
-								: localize('stepNotDone', "{0}: Not completed", step.title),
+								? localize('stepDone', "Checkbox for Step {0}: Completed", step.title)
+								: localize('stepNotDone', "Checkbox for Step {0}: Not completed", step.title),
 						});
 
 					const container = $('.step-description-container', { 'x-step-description-for': step.id });

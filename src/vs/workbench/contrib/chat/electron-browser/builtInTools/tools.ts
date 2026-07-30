@@ -4,9 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { dirname, extUriBiasedIgnorePathCase } from '../../../../../base/common/resources.js';
-import { URI } from '../../../../../base/common/uri.js';
-import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { ChatExternalPathConfirmationContribution } from '../../common/tools/builtinTools/chatExternalPathConfirmation.js';
@@ -24,7 +21,6 @@ export class NativeBuiltinToolsContribution extends Disposable implements IWorkb
 		@ILanguageModelToolsService toolsService: ILanguageModelToolsService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@ILanguageModelToolsConfirmationService confirmationService: ILanguageModelToolsConfirmationService,
-		@IFileService fileService: IFileService,
 	) {
 		super();
 
@@ -50,25 +46,6 @@ export class NativeBuiltinToolsContribution extends Disposable implements IWorkb
 				}
 				if (params?.path) {
 					return { path: params.path, isDirectory: true };
-				}
-				return undefined;
-			},
-			async (pathUri: URI) => {
-				// Walk up from the path looking for a .git folder to find the repository root
-				let dir = dirname(pathUri);
-				for (let i = 0; i < 100; i++) {
-					try {
-						if (await fileService.exists(URI.joinPath(dir, '.git'))) {
-							return dir;
-						}
-					} catch {
-						// ignore permission errors etc.
-					}
-					const parent = dirname(dir);
-					if (extUriBiasedIgnorePathCase.isEqual(parent, dir)) {
-						return undefined;
-					}
-					dir = parent;
 				}
 				return undefined;
 			}

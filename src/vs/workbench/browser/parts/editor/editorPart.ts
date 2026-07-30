@@ -8,7 +8,7 @@ import { Part } from '../../part.js';
 import { Dimension, $, EventHelper, addDisposableGenericMouseDownListener, getWindow, isAncestorOfActiveElement, getActiveElement, isHTMLElement } from '../../../../base/browser/dom.js';
 import { Event, Emitter, Relay, PauseableEmitter } from '../../../../base/common/event.js';
 import { contrastBorder, editorBackground } from '../../../../platform/theme/common/colorRegistry.js';
-import { GroupDirection, GroupsArrangement, GroupOrientation, IMergeGroupOptions, MergeGroupMode, GroupsOrder, GroupLocation, IFindGroupScope, EditorGroupLayout, GroupLayoutArgument, IEditorSideGroup, IEditorDropTargetDelegate, IEditorPart, GroupActivationReason, IEditorGroupActivationEvent } from '../../../services/editor/common/editorGroupsService.js';
+import { GroupDirection, GroupsArrangement, GroupOrientation, IMergeGroupOptions, MergeGroupMode, GroupsOrder, GroupLocation, IFindGroupScope, EditorGroupLayout, GroupLayoutArgument, IEditorSideGroup, IEditorDropTargetDelegate, IEditorPart } from '../../../services/editor/common/editorGroupsService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IView, orthogonal, LayoutPriority, IViewSize, Direction, SerializableGrid, Sizing, ISerializedGrid, ISerializedNode, Orientation, GridBranchNode, isGridBranchNode, GridNode, createSerializedGrid, Grid } from '../../../../base/browser/ui/grid/grid.js';
 import { GroupIdentifier, EditorInputWithOptions, IEditorPartOptions, IEditorPartOptionsChangeEvent, GroupModelChangeKind } from '../../../common/editor.js';
@@ -34,7 +34,7 @@ import { IBoundarySashes } from '../../../../base/browser/ui/sash/sash.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { EditorPartMaximizedEditorGroupContext, EditorPartMultipleEditorGroupsContext } from '../../../common/contextkeys.js';
+import { EditorPartMaximizedEditorGroupContext, EditorPartMultipleEditorGroupsContext, IsAuxiliaryWindowContext } from '../../../common/contextkeys.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 
 export interface IEditorPartUIState {
@@ -116,7 +116,7 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 	private readonly _onDidChangeGroupMaximized = this._register(new Emitter<boolean>());
 	readonly onDidChangeGroupMaximized = this._onDidChangeGroupMaximized.event;
 
-	private readonly _onDidActivateGroup = this._register(new Emitter<IEditorGroupActivationEvent>());
+	private readonly _onDidActivateGroup = this._register(new Emitter<IEditorGroupView>());
 	readonly onDidActivateGroup = this._onDidActivateGroup.event;
 
 	private readonly _onDidAddGroup = this._register(new PauseableEmitter<IEditorGroupView>());
@@ -153,7 +153,7 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 	protected readonly container = $('.content');
 
 	readonly scopedInstantiationService: IInstantiationService;
-	protected readonly scopedContextKeyService: IContextKeyService;
+	private readonly scopedContextKeyService: IContextKeyService;
 
 	private centeredLayoutWidget!: CenteredViewLayout;
 
@@ -365,9 +365,9 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 		}
 	}
 
-	activateGroup(group: IEditorGroupView | GroupIdentifier, preserveWindowOrder?: boolean, reason?: GroupActivationReason): IEditorGroupView {
+	activateGroup(group: IEditorGroupView | GroupIdentifier, preserveWindowOrder?: boolean): IEditorGroupView {
 		const groupView = this.assertGroupView(group);
-		this.doSetGroupActive(groupView, reason);
+		this.doSetGroupActive(groupView);
 
 		// Ensure window on top unless disabled
 		if (!preserveWindowOrder) {
@@ -684,7 +684,7 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 		return groupView;
 	}
 
-	private doSetGroupActive(group: IEditorGroupView, reason = GroupActivationReason.DEFAULT): void {
+	private doSetGroupActive(group: IEditorGroupView): void {
 		if (this._activeGroup !== group) {
 			const previousActiveGroup = this._activeGroup;
 			this._activeGroup = group;
@@ -710,7 +710,7 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 		// Always fire the event that a group has been activated
 		// even if its the same group that is already active to
 		// signal the intent even when nothing has changed.
-		this._onDidActivateGroup.fire({ group, reason });
+		this._onDidActivateGroup.fire(group);
 	}
 
 	private doRestoreGroup(group: IEditorGroupView): void {
@@ -973,7 +973,7 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 	createEditorDropTarget(container: unknown, delegate: IEditorDropTargetDelegate): IDisposable {
 		assertType(isHTMLElement(container));
 
-		return this.scopedInstantiationService.createInstance(EditorDropTarget, this, container, delegate);
+		return this.scopedInstantiationService.createInstance(EditorDropTarget, container, delegate);
 	}
 
 	//#region Part
@@ -1036,7 +1036,10 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 		return this.container;
 	}
 
-	protected handleContextKeys(): void {
+	private handleContextKeys(): void {
+		const isAuxiliaryWindowContext = IsAuxiliaryWindowContext.bindTo(this.scopedContextKeyService);
+		isAuxiliaryWindowContext.set(this.windowId !== mainWindow.vscodeWindowId);
+
 		const multipleEditorGroupsContext = EditorPartMultipleEditorGroupsContext.bindTo(this.scopedContextKeyService);
 		const maximizedEditorGroupContext = EditorPartMaximizedEditorGroupContext.bindTo(this.scopedContextKeyService);
 

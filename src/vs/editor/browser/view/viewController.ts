@@ -16,7 +16,6 @@ import { EditorOption } from '../../common/config/editorOptions.js';
 import * as platform from '../../../base/common/platform.js';
 import { StandardTokenType } from '../../common/encodedTokenAttributes.js';
 import { ITextModel } from '../../common/model.js';
-import { containsRTL } from '../../../base/common/strings.js';
 
 export interface IMouseDispatchData {
 	position: Position;
@@ -175,43 +174,22 @@ export class ViewController {
 			}
 		}
 
-		// Expand to the contiguous run of string tokens (StandardTokenType.String) around the click position.
+		// Check if current token is a string.
 		const lineTokens = tokens.getLineTokens(lineNumber);
-		let startIndex = lineTokens.findTokenIndexAtOffset(column - 1);
-		let endIndex = startIndex;
-		while (startIndex > 0 &&
-			lineTokens.getStandardTokenType(startIndex - 1) === StandardTokenType.String) {
-			startIndex--;
-		}
-		while (endIndex + 1 < lineTokens.getCount() &&
-			lineTokens.getStandardTokenType(endIndex + 1) === StandardTokenType.String) {
-			endIndex++;
-		}
-
-		// Verify the click is after starting or before closing quote.
-		const tokenStart = lineTokens.getStartOffset(startIndex);
-		const tokenEnd = lineTokens.getEndOffset(endIndex);
-		if (column !== tokenStart + 2 && column !== tokenEnd) {
+		const index = lineTokens.findTokenIndexAtOffset(column - 1);
+		if (lineTokens.getStandardTokenType(index) !== StandardTokenType.String) {
 			return undefined;
 		}
 
-		// Verify the token looks like a complete quoted string (quote ... quote).
-		const lineContent = model.getLineContent(lineNumber);
-		const firstChar = lineContent.charAt(tokenStart);
-		if (firstChar !== '"' && firstChar !== '\'' && firstChar !== '`') {
-			return undefined;
-		}
-		if (lineContent.charAt(tokenEnd - 1) !== firstChar) {
+		// Get 1-based boundaries of the string content (excluding quotes).
+		const start = lineTokens.getStartOffset(index) + 2;
+		const end = lineTokens.getEndOffset(index);
+
+		if (column !== start && column !== end) {
 			return undefined;
 		}
 
-		// Skip if string contains RTL characters.
-		const content = lineContent.substring(tokenStart + 1, tokenEnd - 1);
-		if (containsRTL(content)) {
-			return undefined;
-		}
-
-		return new Selection(lineNumber, tokenStart + 2, lineNumber, tokenEnd);
+		return new Selection(lineNumber, start, lineNumber, end);
 	}
 
 	public dispatchMouse(data: IMouseDispatchData): void {
@@ -264,12 +242,9 @@ export class ViewController {
 					if (data.inSelectionMode) {
 						this._wordSelectDrag(data.position, data.revealType);
 					} else {
-						let selection: Selection | undefined;
-						if (options.get(EditorOption.doubleClickSelectsBlock)) {
-							const model = this.viewModel.model;
-							const modelPos = this._convertViewToModelPosition(data.position);
-							selection = ViewController._trySelectBracketContent(model, modelPos) || ViewController._trySelectStringContent(model, modelPos);
-						}
+						const model = this.viewModel.model;
+						const modelPos = this._convertViewToModelPosition(data.position);
+						const selection = ViewController._trySelectBracketContent(model, modelPos) || ViewController._trySelectStringContent(model, modelPos);
 						if (selection) {
 							this._select(selection);
 						} else {

@@ -1387,8 +1387,6 @@ export class AsyncDataTree<TInput, T, TFilterData = void> implements IDisposable
 	}
 
 	dispose(): void {
-		this._onDidRender.dispose();
-		this._onDidChangeNodeSlowState.dispose();
 		this.disposables.dispose();
 		this.tree.dispose();
 	}

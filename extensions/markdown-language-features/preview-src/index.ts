@@ -23,12 +23,8 @@ let documentResource = settings.settings.source;
 
 const vscode = acquireVsCodeApi();
 
-interface State {
-	scrollProgress?: number;
-	resource?: string;
-}
-
-const originalState: State = vscode.getState() ?? {};
+// eslint-disable-next-line local/code-no-any-casts
+const originalState = vscode.getState() ?? {} as any;
 const state = {
 	...originalState,
 	...getData<any>('data-state')
@@ -254,6 +250,7 @@ window.addEventListener('message', async event => {
 				}
 				newRoot.prepend(...styles);
 
+				// eslint-disable-next-line local/code-no-any-casts
 				morphdom(root, newRoot, {
 					childrenOnly: true,
 					onBeforeElUpdated: (fromEl: Element, toEl: Element) => {
@@ -290,7 +287,7 @@ window.addEventListener('message', async event => {
 							domEval(childNode);
 						}
 					}
-				});
+				} as any);
 			}
 
 			++documentVersion;
@@ -444,7 +441,8 @@ function domEval(el: Element): void {
 		for (const key of preservedScriptAttributes) {
 			const val = node.getAttribute?.(key);
 			if (val) {
-				scriptTag.setAttribute(key, val);
+				// eslint-disable-next-line local/code-no-any-casts
+				scriptTag.setAttribute(key, val as any);
 			}
 		}
 

@@ -23,13 +23,11 @@ export class TestInstantiationService extends InstantiationService implements ID
 	private readonly _classStubs: Map<Function, any> = new Map();
 	private readonly _parentTestService: TestInstantiationService | undefined;
 
-	constructor(private _serviceCollection: ServiceCollection = new ServiceCollection(), strict: boolean = false, parent?: InstantiationService, private _properDispose?: boolean) {
+	constructor(private _serviceCollection: ServiceCollection = new ServiceCollection(), strict: boolean = false, parent?: TestInstantiationService, private _properDispose?: boolean) {
 		super(_serviceCollection, strict, parent);
 
 		this._servciesMap = new Map<ServiceIdentifier<any>, any>();
-		if (parent instanceof TestInstantiationService) {
-			this._parentTestService = parent;
-		}
+		this._parentTestService = parent;
 	}
 
 	public get<T>(service: ServiceIdentifier<T>): T {

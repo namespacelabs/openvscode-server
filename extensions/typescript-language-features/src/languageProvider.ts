@@ -18,7 +18,6 @@ import { ClientCapability } from './typescriptService';
 import TypeScriptServiceClient from './typescriptServiceClient';
 import TypingsStatus from './ui/typingsStatus';
 import { Disposable } from './utils/dispose';
-import { readUnifiedConfig } from './utils/configuration';
 import { isWeb, isWebAndHasSharedArrayBuffers, supportsReadableByteStreams } from './utils/platform';
 
 
@@ -97,7 +96,7 @@ export default class LanguageProvider extends Disposable {
 	private configurationChanged(): void {
 		const config = vscode.workspace.getConfiguration(this.id, null);
 		this.updateValidate(config.get(validateSetting, true));
-		this.updateSuggestionDiagnostics(readUnifiedConfig<boolean>(suggestionSetting, true, { scope: null, fallbackSection: this.id }));
+		this.updateSuggestionDiagnostics(config.get(suggestionSetting, true));
 	}
 
 	public handlesUri(resource: vscode.Uri): boolean {

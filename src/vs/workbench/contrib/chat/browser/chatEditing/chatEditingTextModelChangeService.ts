@@ -34,7 +34,6 @@ import { IChatResponseModel } from '../../common/model/chatModel.js';
 import { ChatAgentLocation } from '../../common/constants.js';
 import { IDocumentDiff2 } from './chatEditingCodeEditorIntegration.js';
 import { pendingRewriteMinimap } from './chatEditingModifiedFileEntry.js';
-import { chatSessionResourceToId } from '../../common/model/chatUri.js';
 
 type affectedLines = { linesAdded: number; linesRemoved: number; lineCount: number; hasRemainingEdits: boolean };
 type acceptedOrRejectedLines = affectedLines & { state: 'accepted' | 'rejected' };
@@ -261,7 +260,7 @@ export class ChatEditingTextModelChangeService extends Disposable {
 			return EditSources.unknown({ name: 'editSessionUndoRedo' });
 		}
 
-		const sessionId = chatSessionResourceToId(responseModel.session.sessionResource);
+		const sessionId = responseModel.session.sessionId;
 		const request = responseModel.session.getRequests().at(-1);
 		const languageId = this.modifiedModel.getLanguageId();
 		const agent = responseModel.agent;

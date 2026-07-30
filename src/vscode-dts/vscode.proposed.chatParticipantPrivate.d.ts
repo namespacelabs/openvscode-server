@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// version: 14
+// version: 13
 
 declare module 'vscode' {
 
@@ -112,11 +112,6 @@ declare module 'vscode' {
 		readonly subAgentName?: string;
 
 		/**
-		 * The request ID of the parent request that invoked this subagent.
-		 */
-		readonly parentRequestId?: string;
-
-		/**
 		 * Whether any hooks are enabled for this request.
 		 */
 		readonly hasHooksEnabled: boolean;
@@ -137,10 +132,6 @@ declare module 'vscode' {
 	 * ChatRequestTurn + private additions. Note- at runtime this is the SAME as ChatRequestTurn and instanceof is safe.
 	 */
 	export class ChatRequestTurn2 {
-		/**
-		 * The id of the chat request. Used to identity an interaction with any of the chat surfaces.
-		 */
-		readonly id?: string;
 		/**
 		 * The prompt as entered by the user.
 		 *
@@ -177,14 +168,9 @@ declare module 'vscode' {
 		readonly editedFileEvents?: ChatRequestEditedFileEvent[];
 
 		/**
-		 * The identifier of the language model that was used for this request, if known.
-		 */
-		readonly modelId?: string;
-
-		/**
 		 * @hidden
 		 */
-		constructor(prompt: string, command: string | undefined, references: ChatPromptReference[], participant: string, toolReferences: ChatLanguageModelToolReference[], editedFileEvents: ChatRequestEditedFileEvent[] | undefined, id: string | undefined, modelId: string | undefined);
+		constructor(prompt: string, command: string | undefined, references: ChatPromptReference[], participant: string, toolReferences: ChatLanguageModelToolReference[], editedFileEvents: ChatRequestEditedFileEvent[] | undefined);
 	}
 
 	export class ChatResponseTurn2 {
@@ -267,6 +253,8 @@ declare module 'vscode' {
 
 	export interface LanguageModelToolInvocationOptions<T> {
 		chatRequestId?: string;
+		/** @deprecated Use {@link chatSessionResource} instead */
+		chatSessionId?: string;
 		chatSessionResource?: Uri;
 		chatInteractionId?: string;
 		terminalCommand?: string;
@@ -292,6 +280,8 @@ declare module 'vscode' {
 		 */
 		input: T;
 		chatRequestId?: string;
+		/** @deprecated Use {@link chatSessionResource} instead */
+		chatSessionId?: string;
 		chatSessionResource?: Uri;
 		chatInteractionId?: string;
 		/**
@@ -334,19 +324,6 @@ declare module 'vscode' {
 		export function registerChatParticipantDetectionProvider(participantDetectionProvider: ChatParticipantDetectionProvider): Disposable;
 
 		export const onDidDisposeChatSession: Event<string>;
-	}
-
-	export namespace window {
-		/**
-		 * The resource URI of the currently active chat panel session,
-		 * or `undefined` if there is no active chat panel session.
-		 */
-		export const activeChatPanelSessionResource: Uri | undefined;
-
-		/**
-		 * An event that fires when the active chat panel session resource changes.
-		 */
-		export const onDidChangeActiveChatPanelSessionResource: Event<Uri | undefined>;
 	}
 
 	// #endregion

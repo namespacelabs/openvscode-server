@@ -12,7 +12,6 @@ import * as typeConverters from '../typeConverters';
 import { ClientCapability, ITypeScriptServiceClient } from '../typescriptService';
 import { Delayer } from '../utils/async';
 import { nulToken } from '../utils/cancellation';
-import { readUnifiedConfig } from '../utils/configuration';
 import { Disposable } from '../utils/dispose';
 import FileConfigurationManager from './fileConfigurationManager';
 import { conditionalRegistration, requireSomeCapability } from './util/dependentRegistration';
@@ -66,8 +65,8 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
 					continue;
 				}
 
-				const fallbackSection = doesResourceLookLikeATypeScriptFile(newUri) ? 'typescript' : 'javascript';
-				const setting = readUnifiedConfig<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName, UpdateImportsOnFileMoveSetting.Prompt, { scope: null, fallbackSection });
+				const config = this.getConfiguration(newUri);
+				const setting = config.get<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName);
 				if (setting === UpdateImportsOnFileMoveSetting.Never) {
 					continue;
 				}
@@ -123,8 +122,8 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
 			return false;
 		}
 
-		const fallbackSection = doesResourceLookLikeATypeScriptFile(newResources[0]) ? 'typescript' : 'javascript';
-		const setting = readUnifiedConfig<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName, UpdateImportsOnFileMoveSetting.Prompt, { scope: null, fallbackSection });
+		const config = this.getConfiguration(newResources[0]);
+		const setting = config.get<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName);
 		switch (setting) {
 			case UpdateImportsOnFileMoveSetting.Always:
 				return true;
@@ -134,6 +133,10 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
 			default:
 				return this.promptUser(newResources);
 		}
+	}
+
+	private getConfiguration(resource: vscode.Uri) {
+		return vscode.workspace.getConfiguration(doesResourceLookLikeATypeScriptFile(resource) ? 'typescript' : 'javascript', resource);
 	}
 
 	private async promptUser(newResources: readonly vscode.Uri[]): Promise<boolean> {
@@ -174,7 +177,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
 				return false;
 			}
 			case alwaysItem: {
-				const config = vscode.workspace.getConfiguration('js/ts');
+				const config = this.getConfiguration(newResources[0]);
 				config.update(
 					updateImportsOnFileMoveName,
 					UpdateImportsOnFileMoveSetting.Always,
@@ -182,7 +185,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
 				return true;
 			}
 			case neverItem: {
-				const config = vscode.workspace.getConfiguration('js/ts');
+				const config = this.getConfiguration(newResources[0]);
 				config.update(
 					updateImportsOnFileMoveName,
 					UpdateImportsOnFileMoveSetting.Never,

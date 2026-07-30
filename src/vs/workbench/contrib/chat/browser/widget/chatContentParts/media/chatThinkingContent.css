@@ -21,45 +21,12 @@
 		line-height: 1.5em;
 		font-size: 13px;
 
-		.monaco-button-mdlabel {
+		.codicon, .monaco-button-mdlabel {
 			font-size: var(--vscode-chat-font-size-body-s);
-		}
-
-		.codicon {
-			font-size: 12px;
 		}
 
 		.rendered-markdown.collapsible-title-content {
 			line-height: unset;
-		}
-
-		.rendered-markdown.chat-thinking-title-detail {
-			display: inline;
-
-			> p {
-				display: inline;
-			}
-		}
-	}
-
-	&.chat-thinking-active > .chat-used-context-label .monaco-button.monaco-icon-button {
-
-		.codicon.codicon-circle-filled {
-			display: none;
-		}
-
-		.chat-thinking-title-shimmer {
-			background: linear-gradient(90deg,
-					var(--vscode-descriptionForeground) 0%,
-					var(--vscode-descriptionForeground) 30%,
-					var(--vscode-chat-thinkingShimmer) 50%,
-					var(--vscode-descriptionForeground) 70%,
-					var(--vscode-descriptionForeground) 100%);
-			background-size: 400% 100%;
-			background-clip: text;
-			-webkit-background-clip: text;
-			-webkit-text-fill-color: transparent;
-			animation: chat-thinking-shimmer 2s linear infinite;
 		}
 	}
 
@@ -233,10 +200,6 @@
 
 	.rendered-markdown > p {
 		margin: 0;
-
-		& + p {
-			margin-top: 5px;
-		}
 	}
 }
 

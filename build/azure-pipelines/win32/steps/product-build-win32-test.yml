@@ -17,8 +17,6 @@ steps:
 
   - ${{ if eq(parameters.VSCODE_RUN_ELECTRON_TESTS, true) }}:
     - powershell: .\scripts\test.bat --build --tfs "Unit Tests"
-      env:
-        VSCODE_SKIP_PRELAUNCH: '1'
       displayName: 🧪 Run unit tests (Electron)
       timeoutInMinutes: 15
     - powershell: npm run test-node -- --build
@@ -84,8 +82,6 @@ steps:
         $env:INTEGRATION_TEST_ELECTRON_PATH = "$AppRoot\$AppNameShort.exe"
         $env:VSCODE_REMOTE_SERVER_PATH = "$(agent.builddirectory)\test\vscode-server-win32-$(VSCODE_ARCH)"
         exec { .\scripts\test-integration.bat --build --tfs "Integration Tests" }
-      env:
-        VSCODE_SKIP_PRELAUNCH: '1'
       displayName: 🧪 Run integration tests (Electron)
       timeoutInMinutes: 20
 
@@ -109,8 +105,6 @@ steps:
         $env:INTEGRATION_TEST_ELECTRON_PATH = "$AppRoot\$AppNameShort.exe"
         $env:VSCODE_REMOTE_SERVER_PATH = "$(agent.builddirectory)\test\vscode-server-win32-$(VSCODE_ARCH)"
         exec { .\scripts\test-remote-integration.bat }
-      env:
-        VSCODE_SKIP_PRELAUNCH: '1'
       displayName: 🧪 Run integration tests (Remote)
       timeoutInMinutes: 20
 

@@ -119,11 +119,12 @@ export async function updateConfig(documentUri: vscode.Uri, newConfig: VsCodeCon
 
 export const Config = Object.freeze({
 	autoClosingBrackets: 'editor.autoClosingBrackets',
-	completeFunctionCalls: 'js/ts.suggest.completeFunctionCalls',
+	typescriptCompleteFunctionCalls: 'typescript.suggest.completeFunctionCalls',
 	insertMode: 'editor.suggest.insertMode',
 	snippetSuggestions: 'editor.snippetSuggestions',
 	suggestSelection: 'editor.suggestSelection',
-	quoteStyle: 'js/ts.preferences.quoteStyle',
+	javascriptQuoteStyle: 'javascript.preferences.quoteStyle',
+	typescriptQuoteStyle: 'typescript.preferences.quoteStyle',
 } as const);
 
 export const insertModesValues = Object.freeze(['insert', 'replace']);

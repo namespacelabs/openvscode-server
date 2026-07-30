@@ -16,6 +16,7 @@ export interface IStartSessionProps {
 	readonly initialData?: ISerializedChatDataReference;
 	readonly location: ChatAgentLocation;
 	readonly sessionResource: URI;
+	readonly sessionId?: string;
 	readonly canUseTools: boolean;
 	readonly transferEditingSession?: IChatEditingSession;
 	readonly disableBackgroundKeepAlive?: boolean;

@@ -57,7 +57,7 @@ const RUN_SELECTED_PROMPT_ACTION_ID = 'workbench.action.chat.run.prompt';
 /**
  * Action ID for the `Configure Prompt Files...` action.
  */
-export const CONFIGURE_PROMPTS_ACTION_ID = 'workbench.action.chat.configure.prompts';
+const CONFIGURE_PROMPTS_ACTION_ID = 'workbench.action.chat.configure.prompts';
 
 /**
  * Constructor options for the `Run Prompt` base action.

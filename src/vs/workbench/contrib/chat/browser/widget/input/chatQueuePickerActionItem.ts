@@ -61,7 +61,7 @@ export class ChatQueuePickerActionItem extends BaseActionViewItem {
 		this._primaryActionAction = this._register(new Action(
 			'chat.queuePickerPrimary',
 			isSteerDefault ? localize('chat.steerWithMessage', "Steer with Message") : localize('chat.queueMessage', "Add to Queue"),
-			ThemeIcon.asClassName(Codicon.arrowUp),
+			ThemeIcon.asClassName(Codicon.send),
 			!!contextKeyService.getContextKeyValue(ChatContextKeys.inputHasText.key),
 			() => this._runDefaultAction()
 		));
@@ -194,7 +194,7 @@ export class ChatQueuePickerActionItem extends BaseActionViewItem {
 			label: localize('chat.sendImmediately', "Stop and Send"),
 			tooltip: '',
 			enabled: true,
-			icon: Codicon.arrowUp,
+			icon: Codicon.send,
 			class: undefined,
 			hover: {
 				content: localize('chat.sendImmediately.hover', "Cancel the current request and send this message immediately."),

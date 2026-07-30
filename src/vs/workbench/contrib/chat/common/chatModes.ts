@@ -45,7 +45,7 @@ export class ChatModeService extends Disposable implements IChatModeService {
 	private readonly agentModeDisabledByPolicy: IContextKey<boolean>;
 	private readonly _customModeInstances = new Map<string, CustomChatMode>();
 
-	private readonly _onDidChangeChatModes = this._register(new Emitter<void>());
+	private readonly _onDidChangeChatModes = new Emitter<void>();
 	public readonly onDidChangeChatModes = this._onDidChangeChatModes.event;
 
 	constructor(
@@ -111,10 +111,6 @@ export class ChatModeService extends Disposable implements IChatModeService {
 		for (const cachedMode of cachedCustomModes) {
 			if (isCachedChatModeData(cachedMode) && cachedMode.uri) {
 				try {
-					const visibility = cachedMode.visibility ?? { userInvocable: true, agentInvocable: cachedMode.infer !== false };
-					if (!visibility.userInvocable) {
-						continue;
-					}
 					const uri = URI.revive(cachedMode.uri);
 					const customChatMode: ICustomAgent = {
 						uri,
@@ -126,7 +122,7 @@ export class ChatModeService extends Disposable implements IChatModeService {
 						agentInstructions: cachedMode.modeInstructions ?? { content: cachedMode.body ?? '', toolReferences: [] },
 						handOffs: cachedMode.handOffs,
 						target: cachedMode.target ?? Target.Undefined,
-						visibility,
+						visibility: cachedMode.visibility ?? { userInvokable: true, agentInvokable: cachedMode.infer !== false },
 						agents: cachedMode.agents,
 						source: reviveChatModeSource(cachedMode.source) ?? { storage: PromptsStorage.local }
 					};
@@ -158,7 +154,7 @@ export class ChatModeService extends Disposable implements IChatModeService {
 			const seenUris = new Set<string>();
 
 			for (const customMode of customModes) {
-				if (!customMode.visibility.userInvocable) {
+				if (!customMode.visibility.userInvokable) {
 					continue;
 				}
 

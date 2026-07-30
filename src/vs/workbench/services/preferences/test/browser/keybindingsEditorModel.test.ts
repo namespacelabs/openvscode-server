@@ -214,7 +214,7 @@ suite('KeybindingsEditorModel', () => {
 	});
 
 	test('filter by command id', async () => {
-		const id = 'workbench.action.view.size.' + uuid.generateUuid();
+		const id = 'workbench.action.increaseViewSize';
 		registerCommandWithTitle(id, 'some title');
 		prepareKeybindingService();
 

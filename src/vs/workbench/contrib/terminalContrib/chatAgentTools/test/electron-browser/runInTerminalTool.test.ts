@@ -319,9 +319,6 @@ suite('RunInTerminalTool', () => {
 			'docker compose events',
 		];
 		const confirmationRequiredTestCases = [
-			// git log file output
-			'git log --output=log.txt',
-
 			// Dangerous file operations
 			'rm README.md',
 			'rmdir folder',

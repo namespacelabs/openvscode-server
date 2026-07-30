@@ -7,7 +7,7 @@ import { encodeBase64 } from '../../../../../../base/common/buffer.js';
 import { IMarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { IObservable, ISettableObservable, observableValue } from '../../../../../../base/common/observable.js';
 import { localize } from '../../../../../../nls.js';
-import { ConfirmedReason, IChatExtensionsContent, IChatSimpleToolInvocationData, IChatSubagentToolInvocationData, IChatTodoListContent, IChatToolInputInvocationData, IChatToolInvocation, IChatToolInvocationSerialized, ToolConfirmKind, type IChatTerminalToolInvocationData } from '../../chatService/chatService.js';
+import { ConfirmedReason, IChatExtensionsContent, IChatSubagentToolInvocationData, IChatTodoListContent, IChatToolInputInvocationData, IChatToolInvocation, IChatToolInvocationSerialized, ToolConfirmKind, type IChatTerminalToolInvocationData } from '../../chatService/chatService.js';
 import { IPreparedToolInvocation, isToolResultOutputDetails, IToolConfirmationMessages, IToolData, IToolProgressStep, IToolResult, ToolDataSource } from '../../tools/languageModelToolsService.js';
 
 export interface IStreamingToolCallOptions {
@@ -33,7 +33,7 @@ export class ChatToolInvocation implements IChatToolInvocation {
 	public generatedTitle?: string;
 	public readonly chatRequestId?: string;
 
-	public toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatTodoListContent | IChatSubagentToolInvocationData | IChatSimpleToolInvocationData;
+	public toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatTodoListContent | IChatSubagentToolInvocationData;
 
 	private readonly _progress = observableValue<{ message?: string | IMarkdownString; progress: number | undefined }>(this, { progress: 0 });
 	private readonly _state: ISettableObservable<IChatToolInvocation.State>;
@@ -273,7 +273,7 @@ export class ChatToolInvocation implements IChatToolInvocation {
 		}, undefined);
 	}
 
-	public async didExecuteTool(result: IToolResult | undefined, final?: boolean, checkIfResultAutoApproved?: () => Promise<ConfirmedReason | undefined>): Promise<IChatToolInvocation.State> {
+	public didExecuteTool(result: IToolResult | undefined, final?: boolean): IChatToolInvocation.State {
 		if (result?.toolResultMessage) {
 			this.pastTenseMessage = result.toolResultMessage;
 		} else if (this._progress.get().message) {
@@ -281,20 +281,15 @@ export class ChatToolInvocation implements IChatToolInvocation {
 		}
 
 		if (this.confirmationMessages?.confirmResults && !result?.toolResultError && result?.confirmResults !== false && !final) {
-			const autoApproved = await checkIfResultAutoApproved?.();
-			if (autoApproved) {
-				this._setCompleted(result, autoApproved);
-			} else {
-				this._state.set({
-					type: IChatToolInvocation.StateKind.WaitingForPostApproval,
-					confirmed: IChatToolInvocation.executionConfirmedOrDenied(this) || { type: ToolConfirmKind.ConfirmationNotNeeded },
-					resultDetails: result?.toolResultDetails,
-					contentForModel: result?.content || [],
-					confirm: reason => this._setCompleted(result, reason),
-					parameters: this.parameters,
-					confirmationMessages: this.confirmationMessages,
-				}, undefined);
-			}
+			this._state.set({
+				type: IChatToolInvocation.StateKind.WaitingForPostApproval,
+				confirmed: IChatToolInvocation.executionConfirmedOrDenied(this) || { type: ToolConfirmKind.ConfirmationNotNeeded },
+				resultDetails: result?.toolResultDetails,
+				contentForModel: result?.content || [],
+				confirm: reason => this._setCompleted(result, reason),
+				parameters: this.parameters,
+				confirmationMessages: this.confirmationMessages,
+			}, undefined);
 		} else {
 			this._setCompleted(result);
 		}

@@ -152,13 +152,13 @@ export interface IRunOptionsConfig {
 
 export interface ITaskIdentifier {
 	type?: string;
-	[name: string]: unknown;
+	[name: string]: any;
 }
 
 export namespace ITaskIdentifier {
-	export function is(value: unknown): value is ITaskIdentifier {
-		const candidate: ITaskIdentifier = value as ITaskIdentifier;
-		return candidate !== undefined && Types.isString((value as ITaskIdentifier).type);
+	export function is(value: any): value is ITaskIdentifier {
+		const candidate: ITaskIdentifier = value;
+		return candidate !== undefined && Types.isString(value.type);
 	}
 }
 
@@ -556,7 +556,7 @@ type TaskConfigurationValueWithErrors<T> = {
 	errors?: string[];
 };
 
-const EMPTY_ARRAY: never[] = [];
+const EMPTY_ARRAY: any[] = [];
 Object.freeze(EMPTY_ARRAY);
 
 function assignProperty<T, K extends keyof T>(target: T, source: Partial<T>, key: K) {
@@ -588,7 +588,6 @@ interface IMetaData<T, U> {
 }
 
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- IMetaData array holds heterogeneous parser types
 function _isEmpty<T>(this: void, value: T | undefined, properties: IMetaData<T, any>[] | undefined, allowEmptyArray: boolean = false): boolean {
 	if (value === undefined || value === null || properties === undefined) {
 		return true;
@@ -606,7 +605,6 @@ function _isEmpty<T>(this: void, value: T | undefined, properties: IMetaData<T, 
 	return true;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- IMetaData array holds heterogeneous parser types
 function _assignProperties<T>(this: void, target: T | undefined, source: T | undefined, properties: IMetaData<T, any>[]): T | undefined {
 	if (!source || _isEmpty(source, properties)) {
 		return target;
@@ -616,20 +614,19 @@ function _assignProperties<T>(this: void, target: T | undefined, source: T | und
 	}
 	for (const meta of properties) {
 		const property = meta.property;
-		let value: T[keyof T] | undefined;
+		let value: any;
 		if (meta.type !== undefined) {
 			value = meta.type.assignProperties(target[property], source[property]);
 		} else {
 			value = source[property];
 		}
 		if (value !== undefined && value !== null) {
-			(target as Record<string, unknown>)[property as string] = value;
+			target[property] = value;
 		}
 	}
 	return target;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- IMetaData array holds heterogeneous parser types
 function _fillProperties<T>(this: void, target: T | undefined, source: T | undefined, properties: IMetaData<T, any>[] | undefined, allowEmptyArray: boolean = false): T | undefined {
 	if (!source || _isEmpty(source, properties)) {
 		return target;
@@ -639,20 +636,19 @@ function _fillProperties<T>(this: void, target: T | undefined, source: T | undef
 	}
 	for (const meta of properties!) {
 		const property = meta.property;
-		let value: T[keyof T] | undefined;
+		let value: any;
 		if (meta.type) {
 			value = meta.type.fillProperties(target[property], source[property]);
 		} else if (target[property] === undefined) {
 			value = source[property];
 		}
 		if (value !== undefined && value !== null) {
-			(target as Record<string, unknown>)[property as string] = value;
+			target[property] = value;
 		}
 	}
 	return target;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- IMetaData array holds heterogeneous parser types
 function _fillDefaults<T>(this: void, target: T | undefined, defaults: T | undefined, properties: IMetaData<T, any>[], context: IParseContext): T | undefined {
 	if (target && Object.isFrozen(target)) {
 		return target;
@@ -669,7 +665,7 @@ function _fillDefaults<T>(this: void, target: T | undefined, defaults: T | undef
 		if (target[property] !== undefined) {
 			continue;
 		}
-		let value: T[keyof T] | undefined;
+		let value: any;
 		if (meta.type) {
 			value = meta.type.fillDefaults(target[property], context);
 		} else {
@@ -677,13 +673,12 @@ function _fillDefaults<T>(this: void, target: T | undefined, defaults: T | undef
 		}
 
 		if (value !== undefined && value !== null) {
-			(target as Record<string, unknown>)[property as string] = value;
+			target[property] = value;
 		}
 	}
 	return target;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- IMetaData array holds heterogeneous parser types
 function _freeze<T>(this: void, target: T, properties: IMetaData<T, any>[]): Readonly<T> | undefined {
 	if (target === undefined || target === null) {
 		return undefined;
@@ -777,8 +772,8 @@ namespace ShellConfiguration {
 
 	const properties: IMetaData<Tasks.IShellConfiguration, void>[] = [{ property: 'executable' }, { property: 'args' }, { property: 'quoting' }];
 
-	export function is(value: unknown): value is IShellConfiguration {
-		const candidate: IShellConfiguration = value as IShellConfiguration;
+	export function is(value: any): value is IShellConfiguration {
+		const candidate: IShellConfiguration = value;
 		return candidate && (Types.isString(candidate.executable) || Types.isStringArray(candidate.args));
 	}
 
@@ -1010,7 +1005,6 @@ namespace CommandConfiguration {
 		linux?: IBaseCommandConfigurationShape;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- IMetaData array holds heterogeneous parser types
 	const properties: IMetaData<Tasks.ICommandConfiguration, any>[] = [
 		{ property: 'runtime' }, { property: 'name' }, { property: 'options', type: CommandOptions },
 		{ property: 'args' }, { property: 'taskSelector' }, { property: 'suppressTaskName' },
@@ -1202,15 +1196,14 @@ export namespace ProblemMatcherConverter {
 		return result;
 	}
 
-	export function fromWithOsConfig(this: void, external: IConfigurationProperties & { [key: string]: unknown }, context: IParseContext): TaskConfigurationValueWithErrors<ProblemMatcher[]> {
+	export function fromWithOsConfig(this: void, external: IConfigurationProperties & { [key: string]: any }, context: IParseContext): TaskConfigurationValueWithErrors<ProblemMatcher[]> {
 		let result: TaskConfigurationValueWithErrors<ProblemMatcher[]> = {};
-		const osExternal = external as unknown as { windows?: { problemMatcher?: ProblemMatcherConfig.ProblemMatcherType }; osx?: { problemMatcher?: ProblemMatcherConfig.ProblemMatcherType }; linux?: { problemMatcher?: ProblemMatcherConfig.ProblemMatcherType } };
-		if (osExternal.windows?.problemMatcher && context.platform === Platform.Windows) {
-			result = from(osExternal.windows.problemMatcher, context);
-		} else if (osExternal.osx?.problemMatcher && context.platform === Platform.Mac) {
-			result = from(osExternal.osx.problemMatcher, context);
-		} else if (osExternal.linux?.problemMatcher && context.platform === Platform.Linux) {
-			result = from(osExternal.linux.problemMatcher, context);
+		if (external.windows && external.windows.problemMatcher && context.platform === Platform.Windows) {
+			result = from(external.windows.problemMatcher, context);
+		} else if (external.osx && external.osx.problemMatcher && context.platform === Platform.Mac) {
+			result = from(external.osx.problemMatcher, context);
+		} else if (external.linux && external.linux.problemMatcher && context.platform === Platform.Linux) {
+			result = from(external.linux.problemMatcher, context);
 		} else if (external.problemMatcher) {
 			result = from(external.problemMatcher, context);
 		}
@@ -1351,7 +1344,6 @@ namespace DependsOrder {
 
 namespace ConfigurationProperties {
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- IMetaData array holds heterogeneous parser types
 	const properties: IMetaData<Tasks.IConfigurationProperties, any>[] = [
 		{ property: 'name' },
 		{ property: 'identifier' },
@@ -1366,12 +1358,12 @@ namespace ConfigurationProperties {
 		{ property: 'hide' }
 	];
 
-	export function from(this: void, external: IConfigurationProperties & { [key: string]: unknown }, context: IParseContext,
+	export function from(this: void, external: IConfigurationProperties & { [key: string]: any }, context: IParseContext,
 		includeCommandOptions: boolean, source: TaskConfigSource, properties?: IJSONSchemaMap): TaskConfigurationValueWithErrors<Tasks.IConfigurationProperties> {
 		if (!external) {
 			return {};
 		}
-		const result: Tasks.IConfigurationProperties & { [key: string]: unknown } = {};
+		const result: Tasks.IConfigurationProperties & { [key: string]: any } = {};
 
 		if (properties) {
 			for (const propertyName of Object.keys(properties)) {
@@ -1527,7 +1519,7 @@ namespace ConfiguringTask {
 			RunOptions.fromConfiguration(external.runOptions),
 			{ hide: external.hide }
 		);
-		const configuration = ConfigurationProperties.from(external as IConfigurationProperties & { [key: string]: unknown }, context, true, source, typeDeclaration.properties);
+		const configuration = ConfigurationProperties.from(external, context, true, source, typeDeclaration.properties);
 		result.addTaskLoadMessages(configuration.errors);
 		if (configuration.value) {
 			result.configurationProperties = Object.assign(result.configurationProperties, configuration.value);
@@ -1605,7 +1597,7 @@ namespace CustomTask {
 				identifier: taskName,
 			}
 		);
-		const configuration = ConfigurationProperties.from(external as IConfigurationProperties & { [key: string]: unknown }, context, false, source);
+		const configuration = ConfigurationProperties.from(external, context, false, source);
 		result.addTaskLoadMessages(configuration.errors);
 		if (configuration.value) {
 			result.configurationProperties = Object.assign(result.configurationProperties, configuration.value);
@@ -1725,7 +1717,8 @@ export namespace TaskParser {
 
 	function isCustomTask(value: ICustomTask | IConfiguringTask): value is ICustomTask {
 		const type = value.type;
-		const customize = (value as unknown as Record<string, unknown>).customize;
+		// eslint-disable-next-line local/code-no-any-casts
+		const customize = (value as any).customize;
 		return customize === undefined && (type === undefined || type === null || type === Tasks.CUSTOMIZED_TASK_TYPE || type === 'shell' || type === 'process');
 	}
 

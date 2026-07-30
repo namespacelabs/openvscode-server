@@ -294,7 +294,6 @@ export class ChatImplicitContexts extends Disposable {
 
 	private _values: DisposableMap<ChatImplicitContext, DisposableStore> = this._register(new DisposableMap());
 	private readonly _valuesDisposables: DisposableStore = this._register(new DisposableStore());
-	private _enabled = false;
 
 	setValues(values: ImplicitContextWithSelection[]): void {
 		this._valuesDisposables.clear();
@@ -309,7 +308,6 @@ export class ChatImplicitContexts extends Disposable {
 		for (const value of definedValues) {
 			const implicitContext = new ChatImplicitContext();
 			implicitContext.setValue(value.value, value.isSelection);
-			implicitContext.enabled = this._enabled;
 			const disposableStore = new DisposableStore();
 			disposableStore.add(implicitContext.onDidChangeValue(() => {
 				this._onDidChangeValue.fire();
@@ -329,7 +327,6 @@ export class ChatImplicitContexts extends Disposable {
 	}
 
 	setEnabled(enabled: boolean): void {
-		this._enabled = enabled;
 		this.values.forEach((v) => v.enabled = enabled);
 	}
 
@@ -385,17 +382,13 @@ export class ChatImplicitContext extends Disposable implements IChatRequestImpli
 	get name(): string {
 		if (URI.isUri(this.value)) {
 			return `file:${basename(this.value)}`;
-		}
-		if (isLocation(this.value)) {
+		} else if (isStringImplicitContextValue(this.value)) {
+			return this.value.name;
+		} else if (this.value) {
 			return `file:${basename(this.value.uri)}`;
+		} else {
+			return 'implicit';
 		}
-		if (isStringImplicitContextValue(this.value)) {
-			if (this.value.name === undefined && this.value.resourceUri === undefined) {
-				throw new Error('ChatContextItem must have either a label or a resourceUri');
-			}
-			return this.value.name ?? basename(this.value.resourceUri!);
-		}
-		return 'implicit';
 	}
 
 	readonly kind = 'implicit';
@@ -404,11 +397,7 @@ export class ChatImplicitContext extends Disposable implements IChatRequestImpli
 		if (URI.isUri(this.value)) {
 			return `User's active file`;
 		} else if (isStringImplicitContextValue(this.value)) {
-			if (this.value.name === undefined && this.value.resourceUri === undefined) {
-				throw new Error('ChatContextItem must have either a label or a resourceUri');
-			}
-			const contextName = this.value.name ?? basename(this.value.resourceUri!);
-			return this.value.modelDescription ?? `User's active context from ${contextName}`;
+			return this.value.modelDescription ?? `User's active context from ${this.value.name}`;
 		} else if (this._isSelection) {
 			return `User's active selection`;
 		} else {
@@ -482,7 +471,6 @@ export class ChatImplicitContext extends Disposable implements IChatRequestImpli
 					modelDescription: this.modelDescription,
 					icon: this.value.icon,
 					uri: this.value.uri,
-					resourceUri: this.value.resourceUri,
 					handle: this.value.handle,
 					commandId: this.value.commandId
 				}

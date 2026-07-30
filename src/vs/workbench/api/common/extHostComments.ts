@@ -585,7 +585,6 @@ export function createExtHostComments(mainContext: IMainContext, commands: ExtHo
 		dispose() {
 			this._isDiposed = true;
 			this._acceptInputDisposables.dispose();
-			this._onDidUpdateCommentThread.dispose();
 			this._localDisposables.forEach(disposable => disposable.dispose());
 		}
 	}

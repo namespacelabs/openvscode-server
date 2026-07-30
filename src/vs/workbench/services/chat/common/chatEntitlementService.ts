@@ -140,12 +140,9 @@ export interface IChatEntitlementService {
 	readonly entitlement: ChatEntitlement;
 	readonly entitlementObs: IObservable<ChatEntitlement>;
 
-	readonly previewFeaturesDisabled: boolean;
-
 	readonly organisations: string[] | undefined;
 	readonly isInternal: boolean;
 	readonly sku: string | undefined;
-	readonly copilotTrackingId: string | undefined;
 
 	readonly onDidChangeQuotaExceeded: Event<void>;
 	readonly onDidChangeQuotaRemaining: Event<void>;
@@ -163,8 +160,6 @@ export interface IChatEntitlementService {
 	readonly onDidChangeAnonymous: Event<void>;
 	readonly anonymous: boolean;
 	readonly anonymousObs: IObservable<boolean>;
-
-	markAnonymousRateLimited(): void;
 
 	update(token: CancellationToken): Promise<void>;
 }
@@ -373,14 +368,6 @@ export class ChatEntitlementService extends Disposable implements IChatEntitleme
 		return this.contextKeyService.getContextKeyValue<string>(ChatEntitlementContextKeys.Entitlement.sku.key);
 	}
 
-	get copilotTrackingId(): string | undefined {
-		return this.context?.value.state.copilotTrackingId;
-	}
-
-	get previewFeaturesDisabled(): boolean {
-		return this.contextKeyService.getContextKeyValue<boolean>('github.copilot.previewFeaturesDisabled') === true;
-	}
-
 	//#endregion
 
 	//#region --- Quotas
@@ -513,15 +500,6 @@ export class ChatEntitlementService extends Disposable implements IChatEntitleme
 
 	//#endregion
 
-	markAnonymousRateLimited(): void {
-		if (!this.anonymous) {
-			return;
-		}
-
-		this.chatQuotaExceededContextKey.set(true);
-		this._onDidChangeQuotaExceeded.fire();
-	}
-
 	async update(token: CancellationToken): Promise<void> {
 		await this.requests?.value.forceResolveEntitlement(token);
 	}
@@ -557,7 +535,6 @@ interface IEntitlements {
 	readonly entitlement: ChatEntitlement;
 	readonly organisations?: string[];
 	readonly sku?: string;
-	readonly copilotTrackingId?: string;
 	readonly quotas?: IQuotas;
 }
 
@@ -692,8 +669,7 @@ export class ChatEntitlementRequests extends Disposable {
 			entitlement,
 			organisations: entitlementsData.organization_login_list,
 			quotas: this.toQuotas(entitlementsData),
-			sku: entitlementsData.access_type_sku,
-			copilotTrackingId: entitlementsData.analytics_tracking_id
+			sku: entitlementsData.access_type_sku
 		};
 
 		this.logService.trace(`[chat entitlement]: resolved to ${entitlements.entitlement}, quotas: ${JSON.stringify(entitlements.quotas)}`);
@@ -813,7 +789,7 @@ export class ChatEntitlementRequests extends Disposable {
 	private update(state: IEntitlements): void {
 		this.state = state;
 
-		this.context.update({ entitlement: this.state.entitlement, organisations: this.state.organisations, sku: this.state.sku, copilotTrackingId: this.state.copilotTrackingId });
+		this.context.update({ entitlement: this.state.entitlement, organisations: this.state.organisations, sku: this.state.sku });
 
 		if (state.quotas) {
 			this.chatQuotasAccessor.acceptQuotas(state.quotas);
@@ -990,11 +966,6 @@ export interface IChatEntitlementContextState extends IChatSentiment {
 	organisations: string[] | undefined;
 
 	/**
-	 * User's Copilot tracking ID from the entitlement API.
-	 */
-	copilotTrackingId: string | undefined;
-
-	/**
 	 * User is or was a registered Chat user.
 	 */
 	registered?: boolean;
@@ -1064,7 +1035,7 @@ export class ChatEntitlementContext extends Disposable {
 		this.untrustedContext = ChatEntitlementContextKeys.Setup.untrusted.bindTo(contextKeyService);
 		this.registeredContext = ChatEntitlementContextKeys.Setup.registered.bindTo(contextKeyService);
 
-		this._state = this.storageService.getObject<IChatEntitlementContextState>(ChatEntitlementContext.CHAT_ENTITLEMENT_CONTEXT_STORAGE_KEY, StorageScope.PROFILE) ?? { entitlement: ChatEntitlement.Unknown, organisations: undefined, sku: undefined, copilotTrackingId: undefined };
+		this._state = this.storageService.getObject<IChatEntitlementContextState>(ChatEntitlementContext.CHAT_ENTITLEMENT_CONTEXT_STORAGE_KEY, StorageScope.PROFILE) ?? { entitlement: ChatEntitlement.Unknown, organisations: undefined, sku: undefined };
 
 		this.updateContextSync();
 
@@ -1093,8 +1064,8 @@ export class ChatEntitlementContext extends Disposable {
 	update(context: { installed: boolean; disabled: boolean; untrusted: boolean }): Promise<void>;
 	update(context: { hidden: false }): Promise<void>; // legacy UI state from before we had a setting to hide, keep around to still support users who used this
 	update(context: { later: boolean }): Promise<void>;
-	update(context: { entitlement: ChatEntitlement; organisations: string[] | undefined; sku: string | undefined; copilotTrackingId: string | undefined }): Promise<void>;
-	async update(context: { installed?: boolean; disabled?: boolean; untrusted?: boolean; hidden?: false; later?: boolean; entitlement?: ChatEntitlement; organisations?: string[]; sku?: string; copilotTrackingId?: string }): Promise<void> {
+	update(context: { entitlement: ChatEntitlement; organisations: string[] | undefined; sku: string | undefined }): Promise<void>;
+	async update(context: { installed?: boolean; disabled?: boolean; untrusted?: boolean; hidden?: false; later?: boolean; entitlement?: ChatEntitlement; organisations?: string[]; sku?: string }): Promise<void> {
 		this.logService.trace(`[chat entitlement context] update(): ${JSON.stringify(context)}`);
 
 		const oldState = JSON.stringify(this._state);
@@ -1121,7 +1092,6 @@ export class ChatEntitlementContext extends Disposable {
 			this._state.entitlement = context.entitlement;
 			this._state.organisations = context.organisations;
 			this._state.sku = context.sku;
-			this._state.copilotTrackingId = context.copilotTrackingId;
 
 			if (this._state.entitlement === ChatEntitlement.Free || isProUser(this._state.entitlement)) {
 				this._state.registered = true;

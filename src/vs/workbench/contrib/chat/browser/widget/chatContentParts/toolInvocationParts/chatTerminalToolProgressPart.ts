@@ -366,7 +366,7 @@ export class ChatTerminalToolProgressPart extends BaseChatToolInvocationSubPart 
 
 		if (terminalToolsInThinking && !requiresConfirmation) {
 			this._isInThinkingContainer = true;
-			this.domNode = this._createCollapsibleWrapper(progressPart.domNode, displayCommand, toolInvocation, context);
+			this.domNode = this._createCollapsibleWrapper(progressPart.domNode, command, toolInvocation, context);
 		} else {
 			this.domNode = progressPart.domNode;
 		}
@@ -870,6 +870,7 @@ class ChatTerminalToolOutputSection extends Disposable {
 	private readonly _terminalContainer: HTMLElement;
 	private readonly _emptyElement: HTMLElement;
 	private _lastRenderedLineCount: number | undefined;
+	private _lastRenderedMaxColumnWidth: number | undefined;
 
 	private readonly _onDidFocusEmitter = this._register(new Emitter<void>());
 	public get onDidFocus() { return this._onDidFocusEmitter.event; }
@@ -1081,7 +1082,7 @@ class ChatTerminalToolOutputSection extends Disposable {
 			if (result.lineCount && result.lineCount > 0) {
 				this._hideEmptyMessage();
 			}
-			this._layoutOutput(result.lineCount);
+			this._layoutOutput(result.lineCount, result.maxColumnWidth);
 			if (this._isAtBottom) {
 				this._scrollOutputToBottom();
 			}
@@ -1130,13 +1131,13 @@ class ChatTerminalToolOutputSection extends Disposable {
 		} else {
 			this._hideEmptyMessage();
 		}
-		this._layoutOutput(result?.lineCount ?? 0);
+		this._layoutOutput(result?.lineCount ?? 0, result?.maxColumnWidth);
 		return true;
 	}
 
 	private async _renderSnapshotOutput(snapshot: NonNullable<IChatTerminalToolInvocationData['terminalCommandOutput']>): Promise<void> {
 		if (this._snapshotMirror) {
-			this._layoutOutput(snapshot.lineCount ?? 0);
+			this._layoutOutput(snapshot.lineCount ?? 0, this._lastRenderedMaxColumnWidth);
 			return;
 		}
 		if (this._store.isDisposed) {
@@ -1154,7 +1155,7 @@ class ChatTerminalToolOutputSection extends Disposable {
 			this._showEmptyMessage(localize('chat.terminalOutputEmpty', 'No output was produced by the command.'));
 		}
 		const lineCount = result?.lineCount ?? snapshot.lineCount ?? 0;
-		this._layoutOutput(lineCount);
+		this._layoutOutput(lineCount, result?.maxColumnWidth);
 	}
 
 	private _renderUnavailableMessage(liveTerminalInstance: ITerminalInstance | undefined): void {
@@ -1210,7 +1211,7 @@ class ChatTerminalToolOutputSection extends Disposable {
 		}
 	}
 
-	private _layoutOutput(lineCount?: number): void {
+	private _layoutOutput(lineCount?: number, maxColumnWidth?: number): void {
 		if (!this._scrollableContainer) {
 			return;
 		}
@@ -1221,12 +1222,22 @@ class ChatTerminalToolOutputSection extends Disposable {
 			lineCount = this._lastRenderedLineCount;
 		}
 
+		if (maxColumnWidth !== undefined) {
+			this._lastRenderedMaxColumnWidth = maxColumnWidth;
+		} else {
+			maxColumnWidth = this._lastRenderedMaxColumnWidth;
+		}
+
 		this._scrollableContainer.scanDomNode();
 		if (!this.isExpanded || lineCount === undefined) {
 			return;
 		}
 
 		const scrollableDomNode = this._scrollableContainer.getDomNode();
+
+		// Calculate and apply width based on content
+		this._applyContentWidth(maxColumnWidth);
+
 		const rowHeight = this._computeRowHeightPx();
 		const padding = this._getOutputPadding();
 		const minHeight = rowHeight * MIN_OUTPUT_ROWS + padding;
@@ -1272,6 +1283,53 @@ class ChatTerminalToolOutputSection extends Disposable {
 		const paddingTop = Number.parseFloat(style.paddingTop || '0');
 		const paddingBottom = Number.parseFloat(style.paddingBottom || '0');
 		return paddingTop + paddingBottom;
+	}
+
+	private _applyContentWidth(maxColumnWidth?: number): void {
+		if (!this._scrollableContainer) {
+			return;
+		}
+
+		const window = dom.getActiveWindow();
+		const font = this._terminalConfigurationService.getFont(window);
+		const charWidth = font.charWidth;
+
+		if (!charWidth || !maxColumnWidth || maxColumnWidth <= 0) {
+			// No content width info, leave existing width unchanged
+			return;
+		}
+
+		// Calculate the pixel width needed for the content
+		// Add some padding for scrollbar and visual comfort
+		// Account for container padding
+		// Add one extra character width (cursorWidth) to account for the cursor position
+		// which may be one character beyond the last content character during streaming
+		const horizontalPadding = 24;
+		const cursorWidth = charWidth;
+		const contentWidth = Math.ceil(maxColumnWidth * charWidth) + horizontalPadding + cursorWidth;
+
+		// Get the max available width (container's parent width)
+		const parentWidth = this.domNode.parentElement?.clientWidth ?? 0;
+
+		const scrollableDomNode = this._scrollableContainer.getDomNode();
+
+		if (parentWidth > 0 && contentWidth < parentWidth) {
+			// Content is smaller than available space - shrink to fit
+			// Apply width to both the scrollable container and the content body
+			// The xterm element renders at full column width, so we need to clip it
+			scrollableDomNode.style.width = `${contentWidth}px`;
+			this._outputBody.style.width = `${contentWidth}px`;
+			this._terminalContainer.style.width = `${contentWidth}px`;
+			this._terminalContainer.classList.add('chat-terminal-output-terminal-clipped');
+		} else {
+			// Content needs full width or more (scrollbar will show)
+			scrollableDomNode.style.width = '';
+			this._outputBody.style.width = '';
+			this._terminalContainer.style.width = '';
+			this._terminalContainer.classList.remove('chat-terminal-output-terminal-clipped');
+		}
+
+		this._scrollableContainer.scanDomNode();
 	}
 
 	private _computeRowHeightPx(): number {

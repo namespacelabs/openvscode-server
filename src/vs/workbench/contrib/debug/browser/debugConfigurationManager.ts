@@ -77,7 +77,7 @@ export class ConfigurationManager implements IConfigurationManager {
 		@ILogService private readonly logService: ILogService,
 	) {
 		this.configProviders = [];
-		this.toDispose = [this._onDidChangeConfigurationProviders, this._onDidSelectConfigurationName];
+		this.toDispose = [this._onDidChangeConfigurationProviders];
 		this.initLaunches();
 		this.setCompoundSchemaValues();
 		this.registerListeners();

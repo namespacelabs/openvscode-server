@@ -24,7 +24,6 @@ import { IMarkerData, MarkerSeverity } from '../../../../platform/markers/common
 import { ExtensionsRegistry, ExtensionMessageCollector } from '../../../services/extensions/common/extensionsRegistry.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { FileType, IFileService, IFileStatWithPartialMetadata, IFileSystemProvider } from '../../../../platform/files/common/files.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
 
 export enum FileLocationKind {
 	Default,
@@ -302,12 +301,12 @@ export interface ILineMatcher {
 	handle(lines: string[], start?: number): IHandleResult;
 }
 
-export function createLineMatcher(matcher: ProblemMatcher, fileService?: IFileService, logService?: ILogService): ILineMatcher {
+export function createLineMatcher(matcher: ProblemMatcher, fileService?: IFileService): ILineMatcher {
 	const pattern = matcher.pattern;
 	if (Array.isArray(pattern)) {
-		return new MultiLineMatcher(matcher, fileService, logService);
+		return new MultiLineMatcher(matcher, fileService);
 	} else {
-		return new SingleLineMatcher(matcher, fileService, logService);
+		return new SingleLineMatcher(matcher, fileService);
 	}
 }
 
@@ -316,12 +315,10 @@ const endOfLine: string = Platform.OS === Platform.OperatingSystem.Windows ? '\r
 abstract class AbstractLineMatcher implements ILineMatcher {
 	private matcher: ProblemMatcher;
 	private fileService?: IFileService;
-	private logService?: ILogService;
 
-	constructor(matcher: ProblemMatcher, fileService?: IFileService, logService?: ILogService) {
+	constructor(matcher: ProblemMatcher, fileService?: IFileService) {
 		this.matcher = matcher;
 		this.fileService = fileService;
-		this.logService = logService;
 	}
 
 	public handle(lines: string[], start: number = 0): IHandleResult {
@@ -333,16 +330,6 @@ abstract class AbstractLineMatcher implements ILineMatcher {
 	}
 
 	public abstract get matchLength(): number;
-
-	protected regexpExec(regexp: RegExp, line: string): RegExpExecArray | null {
-		const start = Date.now();
-		const result = regexp.exec(line);
-		const elapsed = Date.now() - start;
-		if (elapsed > 5) {
-			this.logService?.trace(`ProblemMatcher: slow regexp took ${elapsed}ms to execute`, regexp.source);
-		}
-		return result;
-	}
 
 	protected fillProblemData(data: IProblemData | undefined, pattern: IProblemPattern, matches: RegExpExecArray): data is IProblemData {
 		if (data) {
@@ -371,7 +358,8 @@ abstract class AbstractLineMatcher implements ILineMatcher {
 			if (trim) {
 				value = Strings.trim(value)!;
 			}
-			(data as Record<string, string | undefined>)[property] = data[property]! + endOfLine + value;
+			// eslint-disable-next-line local/code-no-any-casts
+			(data as any)[property] += endOfLine + value;
 		}
 	}
 
@@ -383,7 +371,8 @@ abstract class AbstractLineMatcher implements ILineMatcher {
 				if (trim) {
 					value = Strings.trim(value)!;
 				}
-				(data as Record<string, string | undefined>)[property] = value;
+				// eslint-disable-next-line local/code-no-any-casts
+				(data as any)[property] = value;
 			}
 		}
 	}
@@ -495,8 +484,8 @@ class SingleLineMatcher extends AbstractLineMatcher {
 
 	private pattern: IProblemPattern;
 
-	constructor(matcher: ProblemMatcher, fileService?: IFileService, logService?: ILogService) {
-		super(matcher, fileService, logService);
+	constructor(matcher: ProblemMatcher, fileService?: IFileService) {
+		super(matcher, fileService);
 		this.pattern = <IProblemPattern>matcher.pattern;
 	}
 
@@ -510,7 +499,7 @@ class SingleLineMatcher extends AbstractLineMatcher {
 		if (this.pattern.kind !== undefined) {
 			data.kind = this.pattern.kind;
 		}
-		const matches = this.regexpExec(this.pattern.regexp, lines[start]);
+		const matches = this.pattern.regexp.exec(lines[start]);
 		if (matches) {
 			this.fillProblemData(data, this.pattern, matches);
 			if (data.kind === ProblemLocationKind.Location && !data.location && !data.line && data.file) {
@@ -534,8 +523,8 @@ class MultiLineMatcher extends AbstractLineMatcher {
 	private patterns: IProblemPattern[];
 	private data: IProblemData | undefined;
 
-	constructor(matcher: ProblemMatcher, fileService?: IFileService, logService?: ILogService) {
-		super(matcher, fileService, logService);
+	constructor(matcher: ProblemMatcher, fileService?: IFileService) {
+		super(matcher, fileService);
 		this.patterns = <IProblemPattern[]>matcher.pattern;
 	}
 
@@ -550,7 +539,7 @@ class MultiLineMatcher extends AbstractLineMatcher {
 		data.kind = this.patterns[0].kind;
 		for (let i = 0; i < this.patterns.length; i++) {
 			const pattern = this.patterns[i];
-			const matches = this.regexpExec(pattern.regexp, lines[i + start]);
+			const matches = pattern.regexp.exec(lines[i + start]);
 			if (!matches) {
 				return { match: null, continue: false };
 			} else {
@@ -572,7 +561,7 @@ class MultiLineMatcher extends AbstractLineMatcher {
 	public override next(line: string): IProblemMatch | null {
 		const pattern = this.patterns[this.patterns.length - 1];
 		Assert.ok(pattern.loop === true && this.data !== null);
-		const matches = this.regexpExec(pattern.regexp, line);
+		const matches = pattern.regexp.exec(line);
 		if (!matches) {
 			this.data = undefined;
 			return null;
@@ -683,7 +672,7 @@ export namespace Config {
 	}
 
 	export namespace CheckedProblemPattern {
-		export function is(value: unknown): value is ICheckedProblemPattern {
+		export function is(value: any): value is ICheckedProblemPattern {
 			const candidate: IProblemPattern = value as IProblemPattern;
 			return candidate && Types.isString(candidate.regexp);
 		}
@@ -702,7 +691,7 @@ export namespace Config {
 	}
 
 	export namespace NamedProblemPattern {
-		export function is(value: unknown): value is INamedProblemPattern {
+		export function is(value: any): value is INamedProblemPattern {
 			const candidate: INamedProblemPattern = value as INamedProblemPattern;
 			return candidate && Types.isString(candidate.name);
 		}
@@ -717,7 +706,7 @@ export namespace Config {
 	}
 
 	export namespace NamedCheckedProblemPattern {
-		export function is(value: unknown): value is INamedCheckedProblemPattern {
+		export function is(value: any): value is INamedCheckedProblemPattern {
 			const candidate: INamedProblemPattern = value as INamedProblemPattern;
 			return candidate && NamedProblemPattern.is(candidate) && Types.isString(candidate.regexp);
 		}
@@ -726,15 +715,15 @@ export namespace Config {
 	export type MultiLineProblemPattern = IProblemPattern[];
 
 	export namespace MultiLineProblemPattern {
-		export function is(value: unknown): value is MultiLineProblemPattern {
-			return Array.isArray(value);
+		export function is(value: any): value is MultiLineProblemPattern {
+			return value && Array.isArray(value);
 		}
 	}
 
 	export type MultiLineCheckedProblemPattern = ICheckedProblemPattern[];
 
 	export namespace MultiLineCheckedProblemPattern {
-		export function is(value: unknown): value is MultiLineCheckedProblemPattern {
+		export function is(value: any): value is MultiLineCheckedProblemPattern {
 			if (!MultiLineProblemPattern.is(value)) {
 				return false;
 			}
@@ -765,7 +754,7 @@ export namespace Config {
 	}
 
 	export namespace NamedMultiLineCheckedProblemPattern {
-		export function is(value: unknown): value is INamedMultiLineCheckedProblemPattern {
+		export function is(value: any): value is INamedMultiLineCheckedProblemPattern {
 			const candidate = value as INamedMultiLineCheckedProblemPattern;
 			return candidate && Types.isString(candidate.name) && Array.isArray(candidate.patterns) && MultiLineCheckedProblemPattern.is(candidate.patterns);
 		}
@@ -948,7 +937,7 @@ export class ProblemPatternParser extends Parser {
 	public parse(value: Config.MultiLineProblemPattern): MultiLineProblemPattern;
 	public parse(value: Config.INamedProblemPattern): INamedProblemPattern;
 	public parse(value: Config.INamedMultiLineCheckedProblemPattern): INamedMultiLineProblemPattern;
-	public parse(value: Config.IProblemPattern | Config.MultiLineProblemPattern | Config.INamedProblemPattern | Config.INamedMultiLineCheckedProblemPattern): IProblemPattern | MultiLineProblemPattern | INamedProblemPattern | INamedMultiLineProblemPattern | null {
+	public parse(value: Config.IProblemPattern | Config.MultiLineProblemPattern | Config.INamedProblemPattern | Config.INamedMultiLineCheckedProblemPattern): any {
 		if (Config.NamedMultiLineCheckedProblemPattern.is(value)) {
 			return this.createNamedMultiLineProblemPattern(value);
 		} else if (Config.MultiLineCheckedProblemPattern.is(value)) {
@@ -1026,7 +1015,8 @@ export class ProblemPatternParser extends Parser {
 		function copyProperty(result: IProblemPattern, source: Config.IProblemPattern, resultKey: keyof IProblemPattern, sourceKey: keyof Config.IProblemPattern) {
 			const value = source[sourceKey];
 			if (typeof value === 'number') {
-				(result as unknown as Record<string, unknown>)[resultKey] = value;
+				// eslint-disable-next-line local/code-no-any-casts
+				(result as any)[resultKey] = value;
 			}
 		}
 		copyProperty(result, value, 'file', 'file');
@@ -1916,7 +1906,8 @@ class ProblemMatcherRegistryImpl implements IProblemMatcherRegistry {
 				}
 				const matcher = this.get('tsc-watch');
 				if (matcher) {
-					(matcher as unknown as Record<string, unknown>).tscWatch = true;
+					// eslint-disable-next-line local/code-no-any-casts
+					(<any>matcher).tscWatch = true;
 				}
 				resolve(undefined);
 			});

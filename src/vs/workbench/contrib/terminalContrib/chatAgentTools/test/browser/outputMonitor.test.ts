@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { detectsGenericPressAnyKeyPattern, detectsInputRequiredPattern, detectsNonInteractiveHelpPattern, detectsVSCodeTaskFinishMessage, matchTerminalPromptOption, OutputMonitor } from '../../browser/tools/monitoring/outputMonitor.js';
+import { detectsGenericPressAnyKeyPattern, detectsInputRequiredPattern, detectsNonInteractiveHelpPattern, detectsVSCodeTaskFinishMessage, OutputMonitor } from '../../browser/tools/monitoring/outputMonitor.js';
 import { CancellationTokenSource } from '../../../../../../base/common/cancellation.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { IExecution, IPollingResult, OutputMonitorState } from '../../browser/tools/monitoring/types.js';
+import { ITerminalInstance } from '../../../../terminal/browser/terminal.js';
+import { IPollingResult, OutputMonitorState } from '../../browser/tools/monitoring/types.js';
 import { TestInstantiationService } from '../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILanguageModelsService } from '../../../../chat/common/languageModels.js';
 import { IChatService } from '../../../../chat/common/chatService/chatService.js';
@@ -23,7 +24,7 @@ import { isNumber } from '../../../../../../base/common/types.js';
 suite('OutputMonitor', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 	let monitor: OutputMonitor;
-	let execution: IExecution;
+	let execution: { getOutput: () => string; isActive?: () => Promise<boolean>; instance: Pick<ITerminalInstance, 'instanceId' | 'sendText' | 'onData' | 'onDidInputData' | 'focus' | 'registerMarker' | 'onDisposed'>; sessionId: string };
 	let cts: CancellationTokenSource;
 	let instantiationService: TestInstantiationService;
 	let sendTextCalled: boolean;
@@ -45,7 +46,7 @@ suite('OutputMonitor', () => {
 				// eslint-disable-next-line local/code-no-any-casts
 				registerMarker: () => ({ id: 1 } as any)
 			},
-			sessionResource: LocalChatSessionUri.forSession('1')
+			sessionId: '1'
 		};
 		instantiationService = new TestInstantiationService();
 
@@ -286,28 +287,6 @@ suite('OutputMonitor', () => {
 		});
 	});
 
-	suite('matchTerminalPromptOption', () => {
-		test('matches suggested option case-insensitively', () => {
-			assert.deepStrictEqual(matchTerminalPromptOption(['Y', 'n'], 'y'), { option: 'Y', index: 0 });
-			assert.deepStrictEqual(matchTerminalPromptOption(['y', 'N'], 'n'), { option: 'N', index: 1 });
-		});
-
-		test('strips quotes and trailing punctuation', () => {
-			assert.deepStrictEqual(matchTerminalPromptOption(['Y', 'n'], '"y"'), { option: 'Y', index: 0 });
-			assert.deepStrictEqual(matchTerminalPromptOption(['yes', 'no'], 'no.'), { option: 'no', index: 1 });
-		});
-
-		test('handles bracketed options like [Y]', () => {
-			assert.deepStrictEqual(matchTerminalPromptOption(['Y', 'n'], '[y]'), { option: 'Y', index: 0 });
-			assert.deepStrictEqual(matchTerminalPromptOption(['y', 'N'], '(n)'), { option: 'N', index: 1 });
-		});
-
-		test('handles default suffixes by using first token', () => {
-			assert.deepStrictEqual(matchTerminalPromptOption(['Y', 'n'], 'Y (default)'), { option: 'Y', index: 0 });
-			assert.deepStrictEqual(matchTerminalPromptOption(['Enter'], 'Enter to continue'), { option: 'Enter', index: 0 });
-		});
-	});
-
 	suite('detectsVSCodeTaskFinishMessage', () => {
 		test('detects VS Code task completion messages', () => {
 			assert.strictEqual(detectsVSCodeTaskFinishMessage('Press any key to close the terminal.'), true);
@@ -362,5 +341,5 @@ suite('OutputMonitor', () => {
 
 });
 function createTestContext(id: string): IToolInvocationContext {
-	return { sessionResource: LocalChatSessionUri.forSession(id) };
+	return { sessionId: id, sessionResource: LocalChatSessionUri.forSession(id) };
 }

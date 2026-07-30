@@ -9,7 +9,6 @@ import { Remote, RepositoryAccessDetails } from './api/git';
 import { isDescendant } from './util';
 
 export interface RepositoryCacheInfo {
-	repositoryPath: string; // path of the local repository clone
 	workspacePath: string; // path of the workspace folder or workspace file
 	lastTouchedTime?: number; // timestamp when the repository was last touched
 }
@@ -19,8 +18,8 @@ function isRepositoryCacheInfo(obj: unknown): obj is RepositoryCacheInfo {
 		return false;
 	}
 	const rec = obj as Record<string, unknown>;
-	return typeof rec.workspacePath === 'string' && typeof rec.repositoryPath === 'string' &&
-		(rec.lastTouchedTime === undefined || typeof rec.lastTouchedTime === 'number');
+	return typeof rec.workspacePath === 'string' &&
+		(rec.lastOpenedTime === undefined || typeof rec.lastOpenedTime === 'number');
 }
 
 export class RepositoryCache {
@@ -48,18 +47,18 @@ export class RepositoryCache {
 			this._recentRepositories = new Map<string, number>();
 
 			for (const [_, inner] of this.lru) {
-				for (const [, repositoryDetails] of inner) {
-					if (!repositoryDetails.repositoryPath || !repositoryDetails.lastTouchedTime) {
+				for (const [repositoryPath, repositoryDetails] of inner) {
+					if (!repositoryDetails.lastTouchedTime) {
 						continue;
 					}
 
 					// Check whether the repository exists with a more recent access time
-					const repositoryLastAccessTime = this._recentRepositories.get(repositoryDetails.repositoryPath);
+					const repositoryLastAccessTime = this._recentRepositories.get(repositoryPath);
 					if (repositoryLastAccessTime && repositoryDetails.lastTouchedTime <= repositoryLastAccessTime) {
 						continue;
 					}
 
-					this._recentRepositories.set(repositoryDetails.repositoryPath, repositoryDetails.lastTouchedTime);
+					this._recentRepositories.set(repositoryPath, repositoryDetails.lastTouchedTime);
 				}
 			}
 		}
@@ -100,7 +99,6 @@ export class RepositoryCache {
 		}
 
 		foldersLru.set(folderPathOrWorkspaceFile, {
-			repositoryPath: rootPath,
 			workspacePath: folderPathOrWorkspaceFile,
 			lastTouchedTime: Date.now()
 		}); // touch entry
@@ -112,7 +110,7 @@ export class RepositoryCache {
 		// If the current workspace is a workspace file, use that. Otherwise, find the workspace folder that contains the rootUri
 		let folderPathOrWorkspaceFile: string | undefined;
 		try {
-			if (this._workspaceFile && this._workspaceFile.scheme === 'file') {
+			if (this._workspaceFile) {
 				folderPathOrWorkspaceFile = this._workspaceFile.fsPath;
 			} else if (this._workspaceFolders && this._workspaceFolders.length) {
 				const sorted = [...this._workspaceFolders].sort((a, b) => b.uri.fsPath.length - a.uri.fsPath.length);
@@ -128,6 +126,7 @@ export class RepositoryCache {
 		} catch {
 			return;
 		}
+
 	}
 
 	update(addedRemotes: Remote[], removedRemotes: Remote[], rootPath: string): void {
@@ -204,6 +203,7 @@ export class RepositoryCache {
 					this.lru.set(repo, inner);
 				}
 			}
+
 		} catch {
 			this._logger.warn('[CachedRepositories][load] Failed to load cached repositories from global state.');
 		}

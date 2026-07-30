@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 //
 import { Event } from '../../../base/common/event.js';
-import { IMeteredConnectionService } from '../../meteredConnection/common/meteredConnection.js';
 import { INativeHostService } from '../../native/common/native.js';
 import { IProductService } from '../../product/common/productService.js';
 import { IStorageService } from '../../storage/common/storage.js';
@@ -28,9 +27,8 @@ export class UserDataAutoSyncService extends BaseUserDataAutoSyncService {
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IUserDataSyncMachinesService userDataSyncMachinesService: IUserDataSyncMachinesService,
 		@IStorageService storageService: IStorageService,
-		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
 	) {
-		super(productService, userDataSyncStoreManagementService, userDataSyncStoreService, userDataSyncEnablementService, userDataSyncService, logService, authTokenService, telemetryService, userDataSyncMachinesService, storageService, meteredConnectionService);
+		super(productService, userDataSyncStoreManagementService, userDataSyncStoreService, userDataSyncEnablementService, userDataSyncService, logService, authTokenService, telemetryService, userDataSyncMachinesService, storageService);
 
 		this._register(Event.debounce<string, string[]>(Event.any<string>(
 			Event.map(nativeHostService.onDidFocusMainWindow, () => 'windowFocus'),

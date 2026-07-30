@@ -145,12 +145,12 @@ suite('ChatSubagentContentPart', () => {
 			source: ToolDataSource.Internal,
 			toolId: options.toolId ?? RunSubagentTool.Id,
 			toolCallId: toolCallId,
-			subAgentInvocationId: options.subAgentInvocationId,
+			subAgentInvocationId: options.subAgentInvocationId ?? 'test-subagent-id',
 			state: observableValue('state', stateValue),
 			kind: 'toolInvocation',
 			toJSON: () => createMockSerializedToolInvocation({
 				toolId: options.toolId ?? RunSubagentTool.Id,
-				subAgentInvocationId: options.subAgentInvocationId,
+				subAgentInvocationId: options.subAgentInvocationId ?? 'test-subagent-id',
 				toolSpecificData: options.toolSpecificData,
 				isComplete: stateType === IChatToolInvocation.StateKind.Completed
 			})
@@ -183,7 +183,7 @@ suite('ChatSubagentContentPart', () => {
 			toolCallId: options.subAgentInvocationId ?? 'test-tool-call-id',
 			toolId: options.toolId ?? RunSubagentTool.Id,
 			source: ToolDataSource.Internal,
-			subAgentInvocationId: options.subAgentInvocationId,
+			subAgentInvocationId: options.subAgentInvocationId ?? 'test-subagent-id',
 			kind: 'toolInvocationSerialized'
 		};
 	}
@@ -245,7 +245,7 @@ suite('ChatSubagentContentPart', () => {
 	): ChatSubagentContentPart {
 		const part = store.add(instantiationService.createInstance(
 			ChatSubagentContentPart,
-			idOverride ?? toolInvocation.subAgentInvocationId ?? toolInvocation.toolCallId,
+			idOverride ?? toolInvocation.subAgentInvocationId!,
 			toolInvocation,
 			context,
 			mockMarkdownRenderer,
@@ -483,6 +483,7 @@ suite('ChatSubagentContentPart', () => {
 			const toolInvocation = createMockToolInvocation({
 				toolId: RunSubagentTool.Id,
 				toolCallId: sharedToolCallId,
+				subAgentInvocationId: 'call-abc'
 			});
 			const context = createMockRenderContext(false);
 
@@ -491,6 +492,7 @@ suite('ChatSubagentContentPart', () => {
 			const otherInvocation = createMockToolInvocation({
 				toolId: RunSubagentTool.Id,
 				toolCallId: sharedToolCallId,
+				subAgentInvocationId: 'call-abc'
 			});
 
 			const result = part.hasSameContent(otherInvocation, [], context.element);
@@ -526,7 +528,7 @@ suite('ChatSubagentContentPart', () => {
 			const button = getCollapseButton(part);
 			assert.ok(button, 'Should have collapse button');
 			const loadingIcon = getCollapseButtonIcon(button);
-			assert.ok(loadingIcon?.classList.contains('codicon-circle-filled'), 'Should have circle-filled icon while streaming');
+			assert.ok(loadingIcon?.classList.contains('codicon-loading'), 'Should have loading spinner while streaming');
 		});
 	});
 

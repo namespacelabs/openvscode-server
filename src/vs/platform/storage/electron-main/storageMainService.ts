@@ -197,20 +197,18 @@ export class StorageMainService extends Disposable implements IStorageMainServic
 			profileStorage = this._register(this.createProfileStorage(profile));
 			this.mapProfileToStorage.set(profile.id, profileStorage);
 
-			// Don't use this._register() for listeners that are disposed early
-			// as it causes entries to accumulate in _store when storage is closed/reopened
-			const listener = profileStorage.onDidChangeStorage(e => this._onDidChangeProfileStorage.fire({
+			const listener = this._register(profileStorage.onDidChangeStorage(e => this._onDidChangeProfileStorage.fire({
 				...e,
 				storage: profileStorage!,
 				profile
-			}));
+			})));
 
-			Event.once(profileStorage.onDidCloseStorage)(() => {
+			this._register(Event.once(profileStorage.onDidCloseStorage)(() => {
 				this.logService.trace(`StorageMainService: closed profile storage (${profile.name})`);
 
 				this.mapProfileToStorage.delete(profile.id);
 				listener.dispose();
-			});
+			}));
 		}
 
 		return profileStorage;
@@ -244,12 +242,11 @@ export class StorageMainService extends Disposable implements IStorageMainServic
 			workspaceStorage = this._register(this.createWorkspaceStorage(workspace));
 			this.mapWorkspaceToStorage.set(workspace.id, workspaceStorage);
 
-			// Don't use this._register() for Event.once as it auto-disposes
-			Event.once(workspaceStorage.onDidCloseStorage)(() => {
+			this._register(Event.once(workspaceStorage.onDidCloseStorage)(() => {
 				this.logService.trace(`StorageMainService: closed workspace storage (${workspace.id})`);
 
 				this.mapWorkspaceToStorage.delete(workspace.id);
-			});
+			}));
 		}
 
 		return workspaceStorage;

@@ -142,18 +142,3 @@ export function targetsNotebooks(selector: LanguageSelector): boolean {
 		return !!(<LanguageFilter>selector).notebookType;
 	}
 }
-
-export function selectLanguageIds(selector: LanguageSelector, into: Set<string>): void {
-	if (typeof selector === 'string') {
-		into.add(selector);
-	} else if (Array.isArray(selector)) {
-		for (const item of selector) {
-			selectLanguageIds(item, into);
-		}
-	} else {
-		const language = (<LanguageFilter>selector).language;
-		if (language) {
-			into.add(language);
-		}
-	}
-}

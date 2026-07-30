@@ -38,37 +38,34 @@ export function setup(context: TestContext) {
 
 	context.test('desktop-darwin-x64-dmg', ['darwin', 'x64', 'desktop'], async () => {
 		const packagePath = await context.downloadTarget('darwin-x64-dmg');
-		context.validateCodesignSignature(packagePath);
 		if (!context.options.downloadOnly) {
-			const dir = context.mountDmg(packagePath);
-			context.validateAllCodesignSignatures(dir);
-			const entryPoint = context.getDesktopEntryPoint(dir);
+			const mountPoint = context.mountDmg(packagePath);
+			context.validateAllCodesignSignatures(mountPoint);
+			const entryPoint = context.getDesktopEntryPoint(mountPoint);
 			await testDesktopApp(entryPoint);
-			context.unmountDmg(dir);
+			context.unmountDmg(mountPoint);
 		}
 	});
 
 	context.test('desktop-darwin-arm64-dmg', ['darwin', 'arm64', 'desktop'], async () => {
 		const packagePath = await context.downloadTarget('darwin-arm64-dmg');
-		context.validateCodesignSignature(packagePath);
 		if (!context.options.downloadOnly) {
-			const dir = context.mountDmg(packagePath);
-			context.validateAllCodesignSignatures(dir);
-			const entryPoint = context.getDesktopEntryPoint(dir);
+			const mountPoint = context.mountDmg(packagePath);
+			context.validateAllCodesignSignatures(mountPoint);
+			const entryPoint = context.getDesktopEntryPoint(mountPoint);
 			await testDesktopApp(entryPoint);
-			context.unmountDmg(dir);
+			context.unmountDmg(mountPoint);
 		}
 	});
 
 	context.test('desktop-darwin-universal-dmg', ['darwin', 'desktop'], async () => {
 		const packagePath = await context.downloadTarget('darwin-universal-dmg');
-		context.validateCodesignSignature(packagePath);
 		if (!context.options.downloadOnly) {
-			const dir = context.mountDmg(packagePath);
-			context.validateAllCodesignSignatures(dir);
-			const entryPoint = context.getDesktopEntryPoint(dir);
+			const mountPoint = context.mountDmg(packagePath);
+			context.validateAllCodesignSignatures(mountPoint);
+			const entryPoint = context.getDesktopEntryPoint(mountPoint);
 			await testDesktopApp(entryPoint);
-			context.unmountDmg(dir);
+			context.unmountDmg(mountPoint);
 		}
 	});
 
@@ -236,6 +233,7 @@ export function setup(context: TestContext) {
 			'--user-data-dir', test.userDataDir,
 		];
 		args.push(test.workspaceDir);
+
 
 		context.log(`Starting VS Code ${entryPoint} with args ${args.join(' ')}`);
 		const app = await _electron.launch({ executablePath: entryPoint, args });

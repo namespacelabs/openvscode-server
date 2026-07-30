@@ -23,8 +23,7 @@ import { ExtensionIdentifier } from '../../../platform/extensions/common/extensi
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../platform/log/common/log.js';
 import { IUriIdentityService } from '../../../platform/uriIdentity/common/uriIdentity.js';
-import { IChatWidget, IChatWidgetService } from '../../contrib/chat/browser/chat.js';
-import { AgentSessionProviders, getAgentSessionProvider } from '../../contrib/chat/browser/agentSessions/agentSessions.js';
+import { IChatWidgetService } from '../../contrib/chat/browser/chat.js';
 import { AddDynamicVariableAction, IAddDynamicVariableContext } from '../../contrib/chat/browser/attachments/chatDynamicVariables.js';
 import { IChatAgentHistoryEntry, IChatAgentImplementation, IChatAgentRequest, IChatAgentService } from '../../contrib/chat/common/participants/chatAgents.js';
 import { IPromptFileContext, IPromptsService } from '../../contrib/chat/common/promptSyntax/service/promptsService.js';
@@ -39,7 +38,7 @@ import { ILanguageModelToolsService } from '../../contrib/chat/common/tools/lang
 import { IExtHostContext, extHostNamedCustomer } from '../../services/extensions/common/extHostCustomers.js';
 import { IExtensionService } from '../../services/extensions/common/extensions.js';
 import { Dto } from '../../services/extensions/common/proxyIdentifier.js';
-import { ExtHostChatAgentsShape2, ExtHostContext, IChatNotebookEditDto, IChatParticipantMetadata, IChatProgressDto, IChatSessionContextDto, IDynamicChatAgentProps, IExtensionChatAgentMetadata, MainContext, MainThreadChatAgentsShape2 } from '../common/extHost.protocol.js';
+import { ExtHostChatAgentsShape2, ExtHostContext, IChatNotebookEditDto, IChatParticipantMetadata, IChatProgressDto, IDynamicChatAgentProps, IExtensionChatAgentMetadata, MainContext, MainThreadChatAgentsShape2 } from '../common/extHost.protocol.js';
 import { NotebookDto } from './mainThreadNotebookDto.js';
 
 interface AgentData {
@@ -146,18 +145,6 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 		this._register(this._chatService.onDidReceiveQuestionCarouselAnswer(e => {
 			this._proxy.$handleQuestionCarouselAnswer(e.requestId, e.resolveId, e.answers);
 		}));
-		this._register(this._chatWidgetService.onDidChangeFocusedSession(() => {
-			this._acceptActiveChatSession(this._chatWidgetService.lastFocusedWidget);
-		}));
-
-		// Push the initial active session if there is already a focused widget
-		this._acceptActiveChatSession(this._chatWidgetService.lastFocusedWidget);
-	}
-
-	private _acceptActiveChatSession(widget: IChatWidget | undefined): void {
-		const sessionResource = widget?.viewModel?.sessionResource;
-		const isLocal = sessionResource && getAgentSessionProvider(sessionResource) === AgentSessionProviders.Local;
-		this._proxy.$acceptActiveChatSession(isLocal ? sessionResource : undefined);
 	}
 
 	$unregisterAgent(handle: number): void {
@@ -194,34 +181,9 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 				const chatSession = this._chatService.getSession(request.sessionResource);
 				this._pendingProgress.set(request.requestId, { progress, chatSession });
 				try {
-					const contributedSession = chatSession?.contributedChatSession;
-					let chatSessionContext: IChatSessionContextDto | undefined;
-					if (contributedSession) {
-						let chatSessionResource = contributedSession.chatSessionResource;
-						let isUntitled = contributedSession.isUntitled;
-
-						// For new untitled sessions, invoke the controller's newChatSessionItemHandler
-						// to let the extension create a proper session item before the first request.
-						if (isUntitled) {
-							const newItem = await this._chatSessionService.createNewChatSessionItem(contributedSession.chatSessionType, request, token);
-							if (newItem) {
-								chatSessionResource = newItem.resource;
-								isUntitled = false;
-							}
-						}
-
-						chatSessionContext = {
-							chatSessionResource,
-							isUntitled,
-							initialSessionOptions: contributedSession.initialSessionOptions?.map(o => ({
-								optionId: o.optionId,
-								value: typeof o.value === 'string' ? o.value : o.value.id,
-							})),
-						};
-					}
 					return await this._proxy.$invokeAgent(handle, request, {
 						history,
-						chatSessionContext,
+						chatSessionContext: chatSession?.contributedChatSession
 					}, token) ?? {};
 				} finally {
 					this._pendingProgress.delete(request.requestId);
@@ -307,12 +269,12 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 		const { progress, chatSession } = pendingProgress;
 		const chatProgressParts: IChatProgress[] = [];
 
-		const response = chatSession?.getRequests().find(req => req.id === requestId)?.response;
-
 		for (const item of chunks) {
 			const [progress, responsePartHandle] = Array.isArray(item) ? item : [item];
 
 			if (progress.kind === 'externalEdits') {
+				// todo@connor4312: be more specific here, pass response model through to invocation?
+				const response = chatSession?.getRequests().at(-1)?.response;
 				if (chatSession?.editingSession && responsePartHandle !== undefined && response) {
 					const parts = progress.start
 						? await chatSession.editingSession.startExternalEdits(response, responsePartHandle, revive(progress.resources), progress.undoStopId)
@@ -337,18 +299,6 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 			if (progress.kind === 'updateToolInvocation') {
 				// Update the streaming data for an existing tool invocation
 				this._languageModelToolsService.updateToolStream(progress.toolCallId, progress.streamData?.partialInput, CancellationToken.None);
-				continue;
-			}
-
-			if (progress.kind === 'usage') {
-				if (response) {
-					response.setUsage({
-						kind: 'usage',
-						promptTokens: progress.promptTokens,
-						completionTokens: progress.completionTokens,
-						promptTokenDetails: progress.promptTokenDetails
-					});
-				}
 				continue;
 			}
 

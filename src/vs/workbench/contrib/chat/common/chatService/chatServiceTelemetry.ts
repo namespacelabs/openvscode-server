@@ -13,7 +13,6 @@ import { ChatAgentVoteDirection, ChatCopyKind, IChatSendRequestOptions, IChatUse
 import { isImageVariableEntry } from '../attachments/chatVariableEntries.js';
 import { ChatAgentLocation } from '../constants.js';
 import { ILanguageModelsService } from '../languageModels.js';
-import { chatSessionResourceToId } from '../model/chatUri.js';
 
 type ChatVoteEvent = {
 	direction: 'up' | 'down';
@@ -264,7 +263,7 @@ export class ChatRequestTelemetry {
 		agent: IChatAgentData;
 		agentSlashCommandPart: ChatRequestAgentSubcommandPart | undefined;
 		commandPart: ChatRequestSlashCommandPart | undefined;
-		sessionResource: URI;
+		sessionId: string;
 		location: ChatAgentLocation;
 		options: IChatSendRequestOptions | undefined;
 		enableCommandDetection: boolean;
@@ -295,7 +294,7 @@ export class ChatRequestTelemetry {
 			agent: detectedAgent?.id ?? this.opts.agent.id,
 			agentExtensionId: detectedAgent?.extensionId.value ?? this.opts.agent.extensionId.value,
 			slashCommand: this.opts.agentSlashCommandPart ? this.opts.agentSlashCommandPart.command.name : this.opts.commandPart?.slashCommand.command,
-			chatSessionId: chatSessionResourceToId(this.opts.sessionResource),
+			chatSessionId: this.opts.sessionId,
 			enableCommandDetection: this.opts.enableCommandDetection,
 			isParticipantDetected: !!detectedAgent,
 			location: this.opts.location,

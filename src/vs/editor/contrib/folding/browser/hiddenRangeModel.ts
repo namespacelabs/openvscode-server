@@ -13,7 +13,7 @@ import { IModelContentChangedEvent } from '../../../common/textModelEvents.js';
 import { countEOL } from '../../../common/core/misc/eolCounter.js';
 import { FoldingModel } from './foldingModel.js';
 
-export class HiddenRangeModel implements IDisposable {
+export class HiddenRangeModel {
 
 	private readonly _foldingModel: FoldingModel;
 	private _hiddenRanges: IRange[];
@@ -134,7 +134,6 @@ export class HiddenRangeModel implements IDisposable {
 			this._foldingModelListener.dispose();
 			this._foldingModelListener = null;
 		}
-		this._updateEventEmitter.dispose();
 	}
 }
 

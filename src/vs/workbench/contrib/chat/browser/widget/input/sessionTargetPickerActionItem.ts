@@ -96,7 +96,7 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 			actionProvider,
 			actionBarActionProvider,
 			showItemKeybindings: true,
-			reporter: { id: 'ChatSessionTypePicker', name: `ChatSessionTypePicker`, includeOptions: true },
+			reporter: { name: `ChatSessionTypePicker`, includeOptions: true },
 		};
 
 		super(action, sessionTargetPickerOptions, pickerOptions, actionWidgetService, keybindingService, contextKeyService, telemetryService);
@@ -205,7 +205,7 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 
 		const labelElements = [];
 		labelElements.push(...renderLabelWithIcons(`$(${icon.id})`));
-		if (!this.pickerOptions.onlyShowIconsForDefaultActions.get()) {
+		if (currentType !== AgentSessionProviders.Local || !this.pickerOptions.onlyShowIconsForDefaultActions.get()) {
 			labelElements.push(dom.$('span.chat-input-picker-label', undefined, label));
 		}
 		labelElements.push(...renderLabelWithIcons(`$(chevron-down)`));

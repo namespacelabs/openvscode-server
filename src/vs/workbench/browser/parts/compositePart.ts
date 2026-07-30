@@ -257,9 +257,8 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 		show(compositeContainer);
 
 		// Setup action runner
-		if (this.toolBar) {
-			this.toolBar.actionRunner = composite.getActionRunner();
-		}
+		const toolBar = assertReturnsDefined(this.toolBar);
+		toolBar.actionRunner = composite.getActionRunner();
 
 		// Update title with composite title if it differs from descriptor
 		const descriptor = this.registry.getComposite(composite.getId());
@@ -276,15 +275,13 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 		actionsBinding();
 
 		// Action Run Handling
-		if (this.toolBar) {
-			this.actionsListener.value = this.toolBar.actionRunner.onDidRun(e => {
+		this.actionsListener.value = toolBar.actionRunner.onDidRun(e => {
 
-				// Check for Error
-				if (e.error && !isCancellationError(e.error)) {
-					this.notificationService.error(e.error);
-				}
-			});
-		}
+			// Check for Error
+			if (e.error && !isCancellationError(e.error)) {
+				this.notificationService.error(e.error);
+			}
+		});
 
 		// Indicate to composite that it is now visible
 		composite.setVisible(true);
@@ -341,7 +338,8 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 
 		this.titleLabel.updateTitle(compositeId, compositeTitle, keybinding?.getLabel() ?? undefined);
 
-		this.toolBar?.setAriaLabel(localize('ariaCompositeToolbarLabel', "{0} actions", compositeTitle));
+		const toolBar = assertReturnsDefined(this.toolBar);
+		toolBar.setAriaLabel(localize('ariaCompositeToolbarLabel', "{0} actions", compositeTitle));
 	}
 
 	private collectCompositeActions(composite?: Composite): () => void {
@@ -352,13 +350,12 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 		const secondaryActions: IAction[] = composite?.getSecondaryActions().slice(0) || [];
 
 		// Update context
-		if (this.toolBar) {
-			this.toolBar.context = this.actionsContextProvider();
-		}
+		const toolBar = assertReturnsDefined(this.toolBar);
+		toolBar.context = this.actionsContextProvider();
 
 		// Return fn to set into toolbar
 		return () => {
-			this.toolBar?.setActions(prepareActions(primaryActions), prepareActions(secondaryActions), menuIds);
+			toolBar.setActions(prepareActions(primaryActions), prepareActions(secondaryActions), menuIds);
 			this.titleArea?.classList.toggle('has-actions', primaryActions.length > 0 || secondaryActions.length > 0);
 		};
 	}
@@ -402,10 +399,7 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 		return composite;
 	}
 
-	protected override createTitleArea(parent: HTMLElement): HTMLElement | undefined {
-		if (!this.options.hasTitle) {
-			return undefined;
-		}
+	protected override createTitleArea(parent: HTMLElement): HTMLElement {
 
 		// Title Area Container
 		const titleArea = append(parent, $('.composite'));
@@ -469,8 +463,9 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 	override updateStyles(): void {
 		super.updateStyles();
 
-		// Forward to title label if present
-		this.titleLabel?.updateStyles();
+		// Forward to title label
+		const titleLabel = assertReturnsDefined(this.titleLabel);
+		titleLabel.updateStyles();
 	}
 
 	protected actionViewItemProvider(action: IAction, options: IBaseActionViewItemOptions): IActionViewItem | undefined {

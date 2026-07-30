@@ -17,8 +17,4 @@ export interface IBrowserElementsService {
 	getElementData(rect: IRectangle, token: CancellationToken, locator: IBrowserTargetLocator | undefined): Promise<IElementData | undefined>;
 
 	startDebugSession(token: CancellationToken, locator: IBrowserTargetLocator): Promise<void>;
-
-	startConsoleSession(token: CancellationToken, locator: IBrowserTargetLocator): Promise<void>;
-
-	getConsoleLogs(locator: IBrowserTargetLocator): Promise<string | undefined>;
 }

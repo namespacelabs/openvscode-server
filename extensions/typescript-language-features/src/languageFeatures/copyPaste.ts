@@ -11,9 +11,8 @@ import protocol from '../tsServer/protocol/protocol';
 import * as typeConverters from '../typeConverters';
 import { ClientCapability, ITypeScriptServiceClient, ServerResponse } from '../typescriptService';
 import { raceTimeout } from '../utils/async';
-import { readUnifiedConfig } from '../utils/configuration';
 import FileConfigurationManager from './fileConfigurationManager';
-import { conditionalRegistration, requireGlobalUnifiedConfig, requireMinVersion, requireSomeCapability } from './util/dependentRegistration';
+import { conditionalRegistration, requireGlobalConfiguration, requireMinVersion, requireSomeCapability } from './util/dependentRegistration';
 
 class CopyMetadata {
 
@@ -76,7 +75,7 @@ class TsPendingPasteEdit extends TsPasteEdit {
 	}
 }
 
-const enabledSettingId = 'updateImportsOnPaste.enabled' as const;
+const enabledSettingId = 'updateImportsOnPaste.enabled';
 
 class DocumentPasteProvider implements vscode.DocumentPasteEditProvider<TsPasteEdit> {
 
@@ -240,7 +239,8 @@ class DocumentPasteProvider implements vscode.DocumentPasteEditProvider<TsPasteE
 	}
 
 	private isEnabled(document: vscode.TextDocument) {
-		return readUnifiedConfig<boolean>(enabledSettingId, true, { scope: document, fallbackSection: this._modeId });
+		const config = vscode.workspace.getConfiguration(this._modeId, document.uri);
+		return config.get(enabledSettingId, true);
 	}
 }
 
@@ -248,7 +248,7 @@ export function register(selector: DocumentSelector, language: LanguageDescripti
 	return conditionalRegistration([
 		requireSomeCapability(client, ClientCapability.Semantic),
 		requireMinVersion(client, API.v570),
-		requireGlobalUnifiedConfig(enabledSettingId, { fallbackSection: language.id }),
+		requireGlobalConfiguration(language.id, enabledSettingId),
 	], () => {
 		return vscode.languages.registerDocumentPasteEditProvider(selector.semantic, new DocumentPasteProvider(language.id, client, fileConfigurationManager), {
 			providedPasteEditKinds: [DocumentPasteProvider.kind],

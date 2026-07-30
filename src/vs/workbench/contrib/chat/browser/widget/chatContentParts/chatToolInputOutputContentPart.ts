@@ -7,6 +7,7 @@ import * as dom from '../../../../../../base/browser/dom.js';
 import { ButtonWithIcon } from '../../../../../../base/browser/ui/button/button.js';
 import { HoverStyle } from '../../../../../../base/browser/ui/hover/hover.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
+import { Emitter } from '../../../../../../base/common/event.js';
 import { IMarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { autorun, ISettableObservable, observableValue } from '../../../../../../base/common/observable.js';
@@ -26,8 +27,6 @@ import { IDisposableReference } from './chatCollections.js';
 import { ChatQueryTitlePart } from './chatConfirmationWidget.js';
 import { IChatContentPartRenderContext } from './chatContentParts.js';
 import { ChatToolOutputContentSubPart } from './chatToolOutputContentSubPart.js';
-import { renderFileWidgets } from './chatInlineAnchorWidget.js';
-import { IChatMarkdownAnchorService } from './chatMarkdownAnchorService.js';
 
 export interface IChatCollapsibleIOCodePart {
 	kind: 'code';
@@ -60,6 +59,9 @@ export interface IChatCollapsibleOutputData {
 }
 
 export class ChatCollapsibleInputOutputContentPart extends Disposable {
+	private readonly _onDidChangeHeight = this._register(new Emitter<void>());
+	public readonly onDidChangeHeight = this._onDidChangeHeight.event;
+
 	private readonly _editorReferences: IDisposableReference<CodeBlockPart>[] = [];
 	private readonly _titlePart: ChatQueryTitlePart;
 	private _outputSubPart: ChatToolOutputContentSubPart | undefined;
@@ -99,7 +101,6 @@ export class ChatCollapsibleInputOutputContentPart extends Disposable {
 		@IHoverService hoverService: IHoverService,
 		@IModelService private readonly modelService: IModelService,
 		@ILanguageService private readonly languageService: ILanguageService,
-		@IChatMarkdownAnchorService private readonly chatMarkdownAnchorService: IChatMarkdownAnchorService,
 	) {
 		super();
 
@@ -115,7 +116,7 @@ export class ChatCollapsibleInputOutputContentPart extends Disposable {
 			title,
 			subtitle,
 		));
-		renderFileWidgets(titleEl.root, this._instantiationService, this.chatMarkdownAnchorService, this._store);
+		this._register(this._titlePart.onDidChangeHeight(() => this._onDidChangeHeight.fire()));
 		const spacer = document.createElement('span');
 		spacer.style.flexGrow = '1';
 
@@ -154,6 +155,8 @@ export class ChatCollapsibleInputOutputContentPart extends Disposable {
 				messageContainer.root.appendChild(this.createMessageContents());
 				elements.root.appendChild(messageContainer.root);
 			}
+
+			this._onDidChangeHeight.fire();
 		}));
 
 		const toggle = (e: Event) => {
@@ -235,6 +238,7 @@ export class ChatCollapsibleInputOutputContentPart extends Disposable {
 		};
 		const editorReference = this._register(this.context.editorPool.get());
 		editorReference.object.render(data, this.context.currentWidth.get() || 300);
+		this._register(editorReference.object.onDidChangeContentHeight(() => this._onDidChangeHeight.fire()));
 		container.appendChild(editorReference.object.element);
 		this._editorReferences.push(editorReference);
 	}

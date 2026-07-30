@@ -292,17 +292,13 @@ export class StatusBarCommands {
 	private checkoutStatusBar: CheckoutStatusBar;
 	private disposables: Disposable[] = [];
 
-	constructor(private readonly repository: Repository, remoteSourcePublisherRegistry: IRemoteSourcePublisherRegistry) {
+	constructor(repository: Repository, remoteSourcePublisherRegistry: IRemoteSourcePublisherRegistry) {
 		this.syncStatusBar = new SyncStatusBar(repository, remoteSourcePublisherRegistry);
 		this.checkoutStatusBar = new CheckoutStatusBar(repository);
 		this.onDidChange = anyEvent(this.syncStatusBar.onDidChange, this.checkoutStatusBar.onDidChange);
 	}
 
 	get commands(): Command[] {
-		if (this.repository.isHidden) {
-			return [];
-		}
-
 		return [this.checkoutStatusBar.command, this.syncStatusBar.command]
 			.filter((c): c is Command => !!c);
 	}

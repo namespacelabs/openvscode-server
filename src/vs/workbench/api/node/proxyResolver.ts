@@ -424,7 +424,6 @@ async function lookupProxyAuthorization(
 	proxyAuthenticate: string | string[] | undefined,
 	state: { kerberosRequested?: boolean; basicAuthCacheUsed?: boolean; basicAuthAttempt?: number }
 ): Promise<string | undefined> {
-	proxyURL = proxyURL.replace(/\/+$/, '');
 	const cached = proxyAuthenticateCache[proxyURL];
 	if (proxyAuthenticate) {
 		proxyAuthenticateCache[proxyURL] = proxyAuthenticate;

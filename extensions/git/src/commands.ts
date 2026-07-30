@@ -372,12 +372,13 @@ interface ScmCommand {
 
 const Commands: ScmCommand[] = [];
 
-function command(commandId: string, options: ScmCommandOptions = {}): MethodDecorator {
-	return (_target: any, key: string | symbol, descriptor: PropertyDescriptor): void => {
-		if (typeof descriptor.value !== 'function') {
+function command(commandId: string, options: ScmCommandOptions = {}): Function {
+	return (value: unknown, context: ClassMethodDecoratorContext) => {
+		if (typeof value !== 'function' || context.kind !== 'method') {
 			throw new Error('not supported');
 		}
-		Commands.push({ commandId, key: String(key), method: descriptor.value, options });
+		const key = context.name.toString();
+		Commands.push({ commandId, key, method: value, options });
 	};
 }
 

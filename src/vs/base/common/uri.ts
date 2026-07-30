@@ -22,11 +22,7 @@ function _validateUri(ret: URI, _strict?: boolean): void {
 	// scheme, https://tools.ietf.org/html/rfc3986#section-3.1
 	// ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
 	if (ret.scheme && !_schemePattern.test(ret.scheme)) {
-		const matches = [...ret.scheme.matchAll(/[^\w\d+.-]/gu)];
-		const detail = matches.length > 0
-			? ` Found '${matches[0][0]}' at index ${matches[0].index} (${matches.length} total)`
-			: '';
-		throw new Error(`[UriError]: Scheme contains illegal characters.${detail} (len:${ret.scheme.length})`);
+		throw new Error('[UriError]: Scheme contains illegal characters.');
 	}
 
 	// path, http://tools.ietf.org/html/rfc3986#section-3.3

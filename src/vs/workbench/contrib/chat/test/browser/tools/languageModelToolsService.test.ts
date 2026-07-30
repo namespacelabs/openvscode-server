@@ -77,6 +77,7 @@ function registerToolForTest(service: LanguageModelToolsService, store: any, id:
 			tokenBudget: 100,
 			parameters,
 			context: context ? {
+				sessionId: context.sessionId,
 				sessionResource: LocalChatSessionUri.forSession(context.sessionId),
 			} : undefined,
 		}),
@@ -503,95 +504,6 @@ suite('LanguageModelToolsService', () => {
 		assert.strictEqual(result.content[0].value, 'ran');
 	});
 
-	test('selectedCustomButton is passed to tool invoke when user selects a custom button', async () => {
-		let receivedInvocation: IToolInvocation | undefined;
-		const tool = registerToolForTest(service, store, 'testToolCustomButton', {
-			prepareToolInvocation: async () => ({
-				confirmationMessages: {
-					title: 'Confirm',
-					message: 'Pick an option',
-					customButtons: ['Option A', 'Option B'],
-					allowAutoConfirm: false,
-				}
-			}),
-			invoke: async (invocation) => {
-				receivedInvocation = invocation;
-				return { content: [{ kind: 'text', value: invocation.selectedCustomButton ?? 'none' }] };
-			},
-		});
-
-		const sessionId = 'sessionId-custom-btn';
-		const capture: { invocation?: any } = {};
-		stubGetSession(chatService, sessionId, { requestId: 'requestId-custom-btn', capture });
-
-		const dto = tool.makeDto({ x: 1 }, { sessionId });
-
-		const promise = service.invokeTool(dto, async () => 0, CancellationToken.None);
-		const published = await waitForPublishedInvocation(capture);
-		assert.ok(published, 'expected ChatToolInvocation to be published');
-
-		IChatToolInvocation.confirmWith(published, { type: ToolConfirmKind.UserAction, selectedButton: 'Option A' });
-		const result = await promise;
-		assert.strictEqual(receivedInvocation?.selectedCustomButton, 'Option A');
-		assert.strictEqual(result.content[0].value, 'Option A');
-	});
-
-	test('selectedCustomButton is not set when user confirms without custom button', async () => {
-		let receivedInvocation: IToolInvocation | undefined;
-		const tool = registerToolForTest(service, store, 'testToolNoCustomBtn', {
-			prepareToolInvocation: async () => ({
-				confirmationMessages: { title: 'Confirm', message: 'Go?' }
-			}),
-			invoke: async (invocation) => {
-				receivedInvocation = invocation;
-				return { content: [{ kind: 'text', value: 'ok' }] };
-			},
-		});
-
-		const sessionId = 'sessionId-no-custom-btn';
-		const capture: { invocation?: any } = {};
-		stubGetSession(chatService, sessionId, { requestId: 'requestId-no-custom-btn', capture });
-
-		const dto = tool.makeDto({ x: 1 }, { sessionId });
-
-		const promise = service.invokeTool(dto, async () => 0, CancellationToken.None);
-		const published = await waitForPublishedInvocation(capture);
-		assert.ok(published);
-
-		IChatToolInvocation.confirmWith(published, { type: ToolConfirmKind.UserAction });
-		const result = await promise;
-		assert.strictEqual(receivedInvocation?.selectedCustomButton, undefined);
-		assert.strictEqual(result.content[0].value, 'ok');
-	});
-
-	test('confirmationMessages with customButtons disables allowAutoConfirm', async () => {
-		const tool = registerToolForTest(service, store, 'testToolCustomBtnNoAuto', {
-			prepareToolInvocation: async () => ({
-				confirmationMessages: {
-					title: 'Confirm',
-					message: 'Choose',
-					customButtons: ['Yes', 'No'],
-					allowAutoConfirm: false,
-				}
-			}),
-			invoke: async () => ({ content: [{ kind: 'text', value: 'done' }] }),
-		});
-
-		const sessionId = 'sessionId-custom-noauto';
-		const capture: { invocation?: any } = {};
-		stubGetSession(chatService, sessionId, { requestId: 'requestId-custom-noauto', capture });
-
-		const dto = tool.makeDto({ x: 1 }, { sessionId });
-
-		const promise = service.invokeTool(dto, async () => 0, CancellationToken.None);
-		const published = await waitForPublishedInvocation(capture);
-		assert.ok(published, 'expected ChatToolInvocation to be published');
-		assert.deepStrictEqual(published.confirmationMessages?.customButtons, ['Yes', 'No']);
-
-		IChatToolInvocation.confirmWith(published, { type: ToolConfirmKind.UserAction, selectedButton: 'Yes' });
-		await promise;
-	});
-
 	test('cancel tool call', async () => {
 		const toolBarrier = new Barrier();
 		const tool = registerToolForTest(service, store, 'testTool', {
@@ -618,40 +530,6 @@ suite('LanguageModelToolsService', () => {
 		await assert.rejects(toolPromise, err => {
 			return isCancellationError(err);
 		}, 'Expected tool call to be cancelled');
-	});
-
-	test('rejects tool invocation for cancelled request id', async () => {
-		let invoked = false;
-		const tool = registerToolForTest(service, store, 'testTool', {
-			invoke: async () => {
-				invoked = true;
-				return { content: [{ kind: 'text', value: 'done' }] };
-			}
-		});
-
-		const sessionId = 'sessionId-cancelled-request';
-		const requestId = 'requestId-cancelled-request';
-		const fakeModel = {
-			sessionId,
-			sessionResource: LocalChatSessionUri.forSession(sessionId),
-			getRequests: () => [{
-				id: requestId,
-				modelId: 'test-model',
-				response: { isCanceled: true },
-			}],
-		} as ChatModel;
-		chatService.addSession(fakeModel);
-
-		const dto: IToolInvocation = {
-			...tool.makeDto({ a: 1 }, { sessionId }),
-			chatRequestId: requestId,
-		};
-
-		await assert.rejects(service.invokeTool(dto, async () => 0, CancellationToken.None), err => {
-			return isCancellationError(err);
-		}, 'Expected tool invocation to be rejected for cancelled request id');
-
-		assert.strictEqual(invoked, false, 'Tool implementation should not run after request cancellation');
 	});
 
 	test('toFullReferenceNames', () => {
@@ -2244,30 +2122,6 @@ suite('LanguageModelToolsService', () => {
 		assert.strictEqual(deprecatedNames.get('userToolSetRefName'), undefined);
 	});
 
-	test('getDeprecatedFullReferenceNames includes namespaced legacy names for tools in toolsets', () => {
-		// When a tool is in a toolset and has legacy names, the deprecated names map
-		// should also include the namespaced form (e.g. 'vscode/oldName' → 'vscode/newName')
-		const toolWithLegacy: IToolData = {
-			id: 'myNewBrowser',
-			toolReferenceName: 'openIntegratedBrowser',
-			legacyToolReferenceFullNames: ['openSimpleBrowser'],
-			modelDescription: 'Open browser',
-			displayName: 'Open Integrated Browser',
-			source: ToolDataSource.Internal,
-			canBeReferencedInPrompt: true,
-		};
-		store.add(service.registerToolData(toolWithLegacy));
-		store.add(service.vscodeToolSet.addTool(toolWithLegacy));
-
-		const deprecated = service.getDeprecatedFullReferenceNames();
-
-		// The simple legacy name should map to the full reference name
-		assert.deepStrictEqual(deprecated.get('openSimpleBrowser'), new Set(['vscode/openIntegratedBrowser']));
-
-		// The namespaced legacy name should also map to the full reference name
-		assert.deepStrictEqual(deprecated.get('vscode/openSimpleBrowser'), new Set(['vscode/openIntegratedBrowser']));
-	});
-
 	test('getToolByFullReferenceName', () => {
 		setupToolsForTest(service, store);
 
@@ -2959,6 +2813,7 @@ suite('LanguageModelToolsService', () => {
 			tokenBudget: 100,
 			parameters: { test: 1 },
 			context: {
+				sessionId,
 				sessionResource: LocalChatSessionUri.forSession(sessionId),
 			},
 			chatStreamToolCallId: 'stream-call-id', // This should correlate
@@ -3586,52 +3441,6 @@ suite('LanguageModelToolsService', () => {
 		const toolIds = tools.map(t => t.id);
 
 		assert.ok(toolIds.includes('multiSetTool'), 'Tool should be permitted if it belongs to at least one permitted toolset');
-	});
-
-	test('isPermitted allows internal tools with canBeReferencedInPrompt=false when agent mode is disabled (issue #292935)', () => {
-		// Disable agent mode
-		configurationService.setUserConfiguration(ChatConfiguration.AgentEnabled, false);
-
-		// Create internal infrastructure tool that explicitly cannot be referenced in prompts
-		const infrastructureTool: IToolData = {
-			id: 'infrastructureToolInternal',
-			toolReferenceName: 'infrastructureToolRef',
-			modelDescription: 'Infrastructure Tool',
-			displayName: 'Infrastructure Tool',
-			source: ToolDataSource.Internal,
-			canBeReferencedInPrompt: false,
-		};
-		store.add(service.registerToolData(infrastructureTool));
-
-		// Create internal tool with canBeReferencedInPrompt=true (should be blocked)
-		const referencableTool: IToolData = {
-			id: 'referencableTool',
-			toolReferenceName: 'referencableToolRef',
-			modelDescription: 'Referencable Tool',
-			displayName: 'Referencable Tool',
-			source: ToolDataSource.Internal,
-			canBeReferencedInPrompt: true,
-		};
-		store.add(service.registerToolData(referencableTool));
-
-		// Create internal tool with canBeReferencedInPrompt=undefined (should be blocked)
-		const undefinedTool: IToolData = {
-			id: 'undefinedTool',
-			toolReferenceName: 'undefinedToolRef',
-			modelDescription: 'Undefined Tool',
-			displayName: 'Undefined Tool',
-			source: ToolDataSource.Internal,
-			// canBeReferencedInPrompt is undefined
-		};
-		store.add(service.registerToolData(undefinedTool));
-
-		// Get tools - only the infrastructure tool should be available
-		const tools = Array.from(service.getTools(undefined));
-		const toolIds = tools.map(t => t.id);
-
-		assert.ok(toolIds.includes('infrastructureToolInternal'), 'Internal infrastructure tool with canBeReferencedInPrompt=false should be permitted when agent mode is disabled');
-		assert.ok(!toolIds.includes('referencableTool'), 'Internal tool with canBeReferencedInPrompt=true should NOT be permitted when agent mode is disabled');
-		assert.ok(!toolIds.includes('undefinedTool'), 'Internal tool with canBeReferencedInPrompt=undefined should NOT be permitted when agent mode is disabled');
 	});
 
 	suite('ToolSet when clause filtering (issue #291154)', () => {

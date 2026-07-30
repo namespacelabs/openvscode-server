@@ -6,7 +6,7 @@
 import { IActionWidgetService } from './actionWidget.js';
 import { IAction } from '../../../base/common/actions.js';
 import { BaseDropdown, IActionProvider, IBaseDropdownOptions } from '../../../base/browser/ui/dropdown/dropdown.js';
-import { ActionListItemKind, IActionListDelegate, IActionListItem, IActionListItemHover, IActionListOptions } from './actionList.js';
+import { ActionListItemKind, IActionListDelegate, IActionListItem, IActionListItemHover } from './actionList.js';
 import { ThemeIcon } from '../../../base/common/themables.js';
 import { Codicon } from '../../../base/common/codicons.js';
 import { getActiveElement, isHTMLElement } from '../../../base/browser/dom.js';
@@ -47,16 +47,10 @@ export interface IActionWidgetDropdownOptions extends IBaseDropdownOptions {
 	getAnchor?: () => HTMLElement;
 
 	/**
-	 * Telemetry reporter configuration used when the dropdown closes. The `id` field is required
-	 * and is used as the telemetry identifier; `name` is optional additional context. If not
-	 * provided, no telemetry will be sent.
+	 * Name used for telemetry tracking when the dropdown closes.
+	 * If not provided, no telemetry will be sent.
 	 */
-	readonly reporter?: { id: string; name?: string; includeOptions?: boolean };
-
-	/**
-	 * Options for the underlying ActionList (filter, collapsible sections).
-	 */
-	readonly listOptions?: IActionListOptions;
+	readonly reporter?: { name: string; includeOptions?: boolean };
 }
 
 /**
@@ -206,8 +200,7 @@ export class ActionWidgetDropdown extends BaseDropdown {
 			this._options.getAnchor?.() ?? this.element,
 			undefined,
 			actionBarActions,
-			accessibilityProvider,
-			this._options.listOptions
+			accessibilityProvider
 		);
 	}
 
@@ -223,7 +216,6 @@ export class ActionWidgetDropdown extends BaseDropdown {
 			this.telemetryService.publicLog2<ActionWidgetDropdownClosedEvent, ActionWidgetDropdownClosedClassification>(
 				'actionWidgetDropdownClosed',
 				{
-					id: this._options.reporter.id,
 					name: this._options.reporter.name,
 					selectionChanged: optionBefore?.id !== optionAfter?.id,
 					optionIdBefore: this._options.reporter.includeOptions ? optionBefore?.id : undefined,
@@ -237,8 +229,7 @@ export class ActionWidgetDropdown extends BaseDropdown {
 }
 
 type ActionWidgetDropdownClosedEvent = {
-	id: string;
-	name: string | undefined;
+	name: string;
 	selectionChanged: boolean;
 	optionIdBefore: string | undefined;
 	optionIdAfter: string | undefined;
@@ -247,7 +238,6 @@ type ActionWidgetDropdownClosedEvent = {
 };
 
 type ActionWidgetDropdownClosedClassification = {
-	id: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The telemetry id of the dropdown picker.' };
 	name: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The telemetry name of the dropdown picker.' };
 	selectionChanged: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether the user changed the selected option.' };
 	optionIdBefore: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The option configured before opening the dropdown.' };

@@ -39,13 +39,12 @@ export function getTaskDefinition(id: string) {
 }
 
 export function getTaskRepresentation(task: IConfiguredTask | Task): string {
-	if (Object.hasOwn(task, 'label') && (task as IConfiguredTask).label) {
-		return (task as IConfiguredTask).label!;
-	} else if (Object.hasOwn(task, 'script') && (task as IConfiguredTask).script) {
-		return (task as IConfiguredTask).script!;
-	} else if (Object.hasOwn(task, 'command') && (task as IConfiguredTask).command) {
-		const command = (task as IConfiguredTask).command;
-		return isString(command) ? command : command!.name?.toString() || '';
+	if ('label' in task && task.label) {
+		return task.label;
+	} else if ('script' in task && task.script) {
+		return task.script;
+	} else if ('command' in task && task.command) {
+		return isString(task.command) ? task.command : task.command.name?.toString() || '';
 	}
 	return '';
 }
@@ -82,7 +81,7 @@ export async function getTaskForTool(id: string | undefined, taskDefinition: { t
 		}
 	}
 	for (const configTask of configTasks) {
-		if ((!allowParentTask && !configTask.type) || (Object.hasOwn(configTask, 'hide') && configTask.hide)) {
+		if ((!allowParentTask && !configTask.type) || ('hide' in configTask && configTask.hide)) {
 			// Skip these as they are not included in the agent prompt and we need to align with
 			// the indices used there.
 			continue;
@@ -145,12 +144,11 @@ export interface IConfiguredTask {
 	label?: string;
 	type?: string;
 	script?: string;
-	command?: string | { name?: string };
+	command?: string;
 	args?: string[];
 	isBackground?: boolean;
 	problemMatcher?: string[];
 	group?: string;
-	hide?: boolean;
 }
 
 export async function resolveDependencyTasks(parentTask: Task, workspaceFolder: string, configurationService: IConfigurationService, taskService: ITaskService): Promise<Task[] | undefined> {
@@ -221,16 +219,16 @@ export async function collectTerminalResults(
 			// Use reconnection data if possible to match, since the properties here are unique
 			const reconnectionData = instance.reconnectionProperties?.data as IReconnectionTaskData | undefined;
 			if (reconnectionData) {
-				if (Object.hasOwn(commonTaskIdToTaskMap, reconnectionData.lastTask)) {
+				if (reconnectionData.lastTask in commonTaskIdToTaskMap) {
 					terminalTask = commonTaskIdToTaskMap[reconnectionData.lastTask];
-				} else if (Object.hasOwn(taskIdToTaskMap, reconnectionData.id)) {
+				} else if (reconnectionData.id in taskIdToTaskMap) {
 					terminalTask = taskIdToTaskMap[reconnectionData.id];
 				}
 			} else {
 				// Otherwise, fallback to label matching
-				if (instance.shellLaunchConfig.name && Object.hasOwn(taskLabelToTaskMap, instance.shellLaunchConfig.name)) {
+				if (instance.shellLaunchConfig.name && instance.shellLaunchConfig.name in taskLabelToTaskMap) {
 					terminalTask = taskLabelToTaskMap[instance.shellLaunchConfig.name];
-				} else if (Object.hasOwn(taskLabelToTaskMap, instance.title)) {
+				} else if (instance.title in taskLabelToTaskMap) {
 					terminalTask = taskLabelToTaskMap[instance.title];
 				}
 			}
@@ -242,7 +240,7 @@ export async function collectTerminalResults(
 			isActive: isActive ? () => isActive(terminalTask) : undefined,
 			instance,
 			dependencyTasks,
-			sessionResource: invocationContext.sessionResource
+			sessionId: invocationContext.sessionId
 		};
 
 		// For tasks with problem matchers, wait until the task becomes busy before creating the output monitor
@@ -258,8 +256,7 @@ export async function collectTerminalResults(
 			}
 		}
 
-		const hasProblemMatchers = terminalTask.configurationProperties.problemMatchers && terminalTask.configurationProperties.problemMatchers.length > 0;
-		const outputMonitor = disposableStore.add(instantiationService.createInstance(OutputMonitor, execution, hasProblemMatchers ? taskProblemPollFn : undefined, invocationContext, token, task._label));
+		const outputMonitor = disposableStore.add(instantiationService.createInstance(OutputMonitor, execution, taskProblemPollFn, invocationContext, token, task._label));
 		await Promise.race([
 			Event.toPromise(outputMonitor.onDidFinishCommand),
 			Event.toPromise(token.onCancellationRequested as Event<unknown>)

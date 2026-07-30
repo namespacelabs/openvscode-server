@@ -74,13 +74,9 @@ Object.getOwnPropertyNames(definitions).forEach(key => {
 	delete definitions[key];
 });
 
-function fixReferences(literal: Record<string, unknown> | unknown[]) {
+function fixReferences(literal: any) {
 	if (Array.isArray(literal)) {
-		literal.forEach(element => {
-			if (typeof element === 'object' && element !== null) {
-				fixReferences(element as Record<string, unknown>);
-			}
-		});
+		literal.forEach(fixReferences);
 	} else if (typeof literal === 'object') {
 		if (literal['$ref']) {
 			literal['$ref'] = literal['$ref'] + '1';
@@ -88,12 +84,12 @@ function fixReferences(literal: Record<string, unknown> | unknown[]) {
 		Object.getOwnPropertyNames(literal).forEach(property => {
 			const value = literal[property];
 			if (Array.isArray(value) || typeof value === 'object') {
-				fixReferences(value as Record<string, unknown>);
+				fixReferences(value);
 			}
 		});
 	}
 }
-fixReferences(schema as unknown as Record<string, unknown>);
+fixReferences(schema);
 
 ProblemMatcherRegistry.onReady().then(() => {
 	try {

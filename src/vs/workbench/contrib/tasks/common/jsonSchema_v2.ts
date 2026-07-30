@@ -15,13 +15,9 @@ import * as ConfigurationResolverUtils from '../../../services/configurationReso
 import { inputsSchema } from '../../../services/configurationResolver/common/configurationResolverSchema.js';
 import { getAllCodicons } from '../../../../base/common/codicons.js';
 
-function fixReferences(literal: Record<string, unknown> | unknown[]) {
+function fixReferences(literal: any) {
 	if (Array.isArray(literal)) {
-		literal.forEach(element => {
-			if (typeof element === 'object' && element !== null) {
-				fixReferences(element as Record<string, unknown>);
-			}
-		});
+		literal.forEach(fixReferences);
 	} else if (typeof literal === 'object') {
 		if (literal['$ref']) {
 			literal['$ref'] = literal['$ref'] + '2';
@@ -29,7 +25,7 @@ function fixReferences(literal: Record<string, unknown> | unknown[]) {
 		Object.getOwnPropertyNames(literal).forEach(property => {
 			const value = literal[property];
 			if (Array.isArray(value) || typeof value === 'object') {
-				fixReferences(value as Record<string, unknown>);
+				fixReferences(value);
 			}
 		});
 	}
@@ -484,7 +480,7 @@ export function updateTaskDefinitions() {
 				schemaProperties[key] = Objects.deepClone(property);
 			}
 		}
-		fixReferences(schema as unknown as Record<string, unknown>);
+		fixReferences(schema);
 		taskDefinitions.push(schema);
 	}
 }
@@ -651,7 +647,7 @@ Object.getOwnPropertyNames(definitions).forEach(key => {
 	delete definitions[key];
 	deprecatedVariableMessage(definitions, newKey);
 });
-fixReferences(schema as unknown as Record<string, unknown>);
+fixReferences(schema);
 
 export function updateProblemMatchers() {
 	try {

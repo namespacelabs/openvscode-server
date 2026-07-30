@@ -9,9 +9,7 @@ import { raceCancellationError } from '../../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
-import { URI } from '../../../../../../base/common/uri.js';
 import * as nls from '../../../../../../nls.js';
-import { ITextResourceConfigurationService } from '../../../../../../editor/common/services/textResourceConfiguration.js';
 import { IContextKeyService, IScopedContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorOptions } from '../../../../../../platform/editor/common/editor.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
@@ -20,12 +18,10 @@ import { IStorageService } from '../../../../../../platform/storage/common/stora
 import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
 import { editorBackground, editorForeground, inputBackground } from '../../../../../../platform/theme/common/colorRegistry.js';
 import { IThemeService } from '../../../../../../platform/theme/common/themeService.js';
-import { AbstractEditorWithViewState } from '../../../../../browser/parts/editor/editorWithViewState.js';
+import { EditorPane } from '../../../../../browser/parts/editor/editorPane.js';
 import { IEditorOpenContext } from '../../../../../common/editor.js';
-import { EditorInput } from '../../../../../common/editor/editorInput.js';
 import { EDITOR_DRAG_AND_DROP_BACKGROUND } from '../../../../../common/theme.js';
-import { IEditorGroup, IEditorGroupsService } from '../../../../../services/editor/common/editorGroupsService.js';
-import { IEditorService } from '../../../../../services/editor/common/editorService.js';
+import { IEditorGroup } from '../../../../../services/editor/common/editorGroupsService.js';
 import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
 import { IChatModel, IChatModelInputState, IExportableChatData, ISerializableChatData } from '../../../common/model/chatModel.js';
 import { IChatService } from '../../../common/chatService/chatService.js';
@@ -49,13 +45,7 @@ export interface IChatEditorOptions extends IEditorOptions {
 	};
 }
 
-export interface IChatEditorViewState {
-	scrollTop: number;
-}
-
-export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState> {
-	private static readonly VIEW_STATE_KEY = 'chatEditorViewState';
-
+export class ChatEditor extends EditorPane {
 	private _widget!: ChatWidget;
 	public get widget(): ChatWidget {
 		return this._widget;
@@ -73,16 +63,13 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 		group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
-		@IInstantiationService instantiationService: IInstantiationService,
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IStorageService storageService: IStorageService,
 		@IChatSessionsService private readonly chatSessionsService: IChatSessionsService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IChatService private readonly chatService: IChatService,
-		@ITextResourceConfigurationService textResourceConfigurationService: ITextResourceConfigurationService,
-		@IEditorService editorService: IEditorService,
-		@IEditorGroupsService editorGroupService: IEditorGroupsService,
 	) {
-		super(ChatEditorInput.EditorID, group, ChatEditor.VIEW_STATE_KEY, telemetryService, instantiationService, storageService, textResourceConfigurationService, themeService, editorService, editorGroupService);
+		super(ChatEditorInput.EditorID, group, telemetryService, themeService, storageService);
 	}
 
 	private async clear() {
@@ -151,6 +138,7 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 	}
 
 	override clearInput(): void {
+		this.saveState();
 		this.widget.setModel(undefined);
 		super.clearInput();
 	}
@@ -254,11 +242,6 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 
 			this.updateModel(editorModel.model);
 
-			const viewState = this.loadEditorViewState(input, context);
-			if (viewState) {
-				this._widget.scrollTop = viewState.scrollTop;
-			}
-
 			if (isContributedChatSession && options?.title?.preferred && input.sessionResource) {
 				this.chatService.setChatSessionTitle(input.sessionResource, options.title.preferred);
 			}
@@ -270,21 +253,6 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 
 	private updateModel(model: IChatModel): void {
 		this.widget.setModel(model);
-	}
-
-	protected computeEditorViewState(_resource: URI): IChatEditorViewState | undefined {
-		if (!this._widget) {
-			return undefined;
-		}
-		return { scrollTop: this._widget.scrollTop };
-	}
-
-	protected tracksEditorViewState(input: EditorInput): boolean {
-		return input instanceof ChatEditorInput;
-	}
-
-	protected toEditorViewStateResource(input: EditorInput): URI | undefined {
-		return (input as ChatEditorInput).sessionResource;
 	}
 
 	override layout(dimension: dom.Dimension, position?: dom.IDomPosition | undefined): void {

@@ -496,7 +496,7 @@ export interface IEditorOptions {
 	 * Enable quick suggestions (shadow suggestions)
 	 * Defaults to true.
 	 */
-	quickSuggestions?: boolean | QuickSuggestionsValue | IQuickSuggestionsOptions;
+	quickSuggestions?: boolean | IQuickSuggestionsOptions;
 	/**
 	 * Quick suggestions show delay (in ms)
 	 * Defaults to 10 (ms)
@@ -566,11 +566,6 @@ export interface IEditorOptions {
 	 * Defaults to false.
 	 */
 	formatOnPaste?: boolean;
-	/**
-	 * Controls whether double-clicking next to a bracket or quote selects the content inside.
-	 * Defaults to true.
-	 */
-	doubleClickSelectsBlock?: boolean;
 	/**
 	 * Controls if the editor should allow to move selections via drag and drop.
 	 * Defaults to false.
@@ -3717,7 +3712,7 @@ class PlaceholderOption extends BaseEditorOption<EditorOption.placeholder, strin
 
 //#region quickSuggestions
 
-export type QuickSuggestionsValue = 'on' | 'inline' | 'off' | 'offWhenInlineCompletions';
+export type QuickSuggestionsValue = 'on' | 'inline' | 'off';
 
 /**
  * Configuration options for quick suggestions
@@ -3734,7 +3729,7 @@ export interface InternalQuickSuggestionsOptions {
 	readonly strings: QuickSuggestionsValue;
 }
 
-class EditorQuickSuggestions extends BaseEditorOption<EditorOption.quickSuggestions, boolean | QuickSuggestionsValue | IQuickSuggestionsOptions, InternalQuickSuggestionsOptions> {
+class EditorQuickSuggestions extends BaseEditorOption<EditorOption.quickSuggestions, boolean | IQuickSuggestionsOptions, InternalQuickSuggestionsOptions> {
 
 	public override readonly defaultValue: InternalQuickSuggestionsOptions;
 
@@ -3748,45 +3743,32 @@ class EditorQuickSuggestions extends BaseEditorOption<EditorOption.quickSuggesti
 			{ type: 'boolean' },
 			{
 				type: 'string',
-				enum: ['on', 'inline', 'off', 'offWhenInlineCompletions'],
-				enumDescriptions: [nls.localize('on', "Quick suggestions show inside the suggest widget"), nls.localize('inline', "Quick suggestions show as ghost text"), nls.localize('off', "Quick suggestions are disabled"), nls.localize('offWhenInlineCompletions', "Quick suggestions are disabled when an inline completion provider is available")]
+				enum: ['on', 'inline', 'off'],
+				enumDescriptions: [nls.localize('on', "Quick suggestions show inside the suggest widget"), nls.localize('inline', "Quick suggestions show as ghost text"), nls.localize('off', "Quick suggestions are disabled")]
 			}
 		];
 		super(EditorOption.quickSuggestions, 'quickSuggestions', defaults, {
-			anyOf: [
-				{ type: 'boolean' },
-				{
-					type: 'string',
-					enum: ['on', 'inline', 'off', 'offWhenInlineCompletions'],
-					enumDescriptions: [nls.localize('quickSuggestions.topLevel.on', "Quick suggestions are enabled for all token types"), nls.localize('quickSuggestions.topLevel.inline', "Quick suggestions show as ghost text for all token types"), nls.localize('quickSuggestions.topLevel.off', "Quick suggestions are disabled for all token types"), nls.localize('quickSuggestions.topLevel.offWhenInlineCompletions', "Quick suggestions are disabled for all token types when an inline completion provider is available")]
+			type: 'object',
+			additionalProperties: false,
+			properties: {
+				strings: {
+					anyOf: types,
+					default: defaults.strings,
+					description: nls.localize('quickSuggestions.strings', "Enable quick suggestions inside strings.")
 				},
-				{
-					type: 'object',
-					additionalProperties: false,
-					properties: {
-						strings: {
-							anyOf: types,
-							default: defaults.strings,
-							description: nls.localize('quickSuggestions.strings', "Enable quick suggestions inside strings.")
-						},
-						comments: {
-							anyOf: types,
-							default: defaults.comments,
-							description: nls.localize('quickSuggestions.comments', "Enable quick suggestions inside comments.")
-						},
-						other: {
-							anyOf: types,
-							default: defaults.other,
-							description: nls.localize('quickSuggestions.other', "Enable quick suggestions outside of strings and comments.")
-						},
-					},
-				}
-			],
+				comments: {
+					anyOf: types,
+					default: defaults.comments,
+					description: nls.localize('quickSuggestions.comments', "Enable quick suggestions inside comments.")
+				},
+				other: {
+					anyOf: types,
+					default: defaults.other,
+					description: nls.localize('quickSuggestions.other', "Enable quick suggestions outside of strings and comments.")
+				},
+			},
 			default: defaults,
-			markdownDescription: nls.localize('quickSuggestions', "Controls whether suggestions should automatically show up while typing. This can be controlled for typing in comments, strings, and other code. Quick suggestion can be configured to show as ghost text or with the suggest widget. Also be aware of the {0}-setting which controls if suggestions are triggered by special characters.", '`#editor.suggestOnTriggerCharacters#`'),
-			experiment: {
-				mode: 'auto'
-			}
+			markdownDescription: nls.localize('quickSuggestions', "Controls whether suggestions should automatically show up while typing. This can be controlled for typing in comments, strings, and other code. Quick suggestion can be configured to show as ghost text or with the suggest widget. Also be aware of the {0}-setting which controls if suggestions are triggered by special characters.", '`#editor.suggestOnTriggerCharacters#`')
 		});
 		this.defaultValue = defaults;
 	}
@@ -3797,19 +3779,13 @@ class EditorQuickSuggestions extends BaseEditorOption<EditorOption.quickSuggesti
 			const value = input ? 'on' : 'off';
 			return { comments: value, strings: value, other: value };
 		}
-		if (typeof input === 'string') {
-			// string shorthand -> apply same value to all token types
-			const allowedValues: QuickSuggestionsValue[] = ['on', 'inline', 'off', 'offWhenInlineCompletions'];
-			const validated = stringSet<QuickSuggestionsValue>(input as QuickSuggestionsValue, this.defaultValue.other, allowedValues);
-			return { comments: validated, strings: validated, other: validated };
-		}
 		if (!input || typeof input !== 'object') {
-			// invalid input
+			// invalid object
 			return this.defaultValue;
 		}
 
 		const { other, comments, strings } = (<IQuickSuggestionsOptions>input);
-		const allowedValues: QuickSuggestionsValue[] = ['on', 'inline', 'off', 'offWhenInlineCompletions'];
+		const allowedValues: QuickSuggestionsValue[] = ['on', 'inline', 'off'];
 		let validatedOther: QuickSuggestionsValue;
 		let validatedComments: QuickSuggestionsValue;
 		let validatedStrings: QuickSuggestionsValue;
@@ -5920,8 +5896,7 @@ export const enum EditorOption {
 	inlineCompletionsAccessibilityVerbose,
 	effectiveEditContext,
 	scrollOnMiddleClick,
-	effectiveAllowVariableFonts,
-	doubleClickSelectsBlock
+	effectiveAllowVariableFonts
 }
 
 export const EditorOptions = {
@@ -6213,10 +6188,6 @@ export const EditorOptions = {
 	)),
 	domReadOnly: register(new EditorBooleanOption(
 		EditorOption.domReadOnly, 'domReadOnly', false,
-	)),
-	doubleClickSelectsBlock: register(new EditorBooleanOption(
-		EditorOption.doubleClickSelectsBlock, 'doubleClickSelectsBlock', true,
-		{ description: nls.localize('doubleClickSelectsBlock', "Controls whether double-clicking next to a bracket or quote selects the content inside.") }
 	)),
 	dragAndDrop: register(new EditorBooleanOption(
 		EditorOption.dragAndDrop, 'dragAndDrop', true,

@@ -11,7 +11,7 @@ import { registerAction2, Action2, MenuId } from '../../../../../platform/action
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IChatSessionsService } from '../../common/chatSessionsService.js';
-import { AgentSessionProviders, getAgentSessionProvider, getAgentSessionProviderName } from './agentSessions.js';
+import { AgentSessionProviders, getAgentSessionProviderName } from './agentSessions.js';
 import { AgentSessionStatus, IAgentSession } from './agentSessionsModel.js';
 import { IAgentSessionsFilter, IAgentSessionsFilterExcludes } from './agentSessionsViewer.js';
 
@@ -22,7 +22,7 @@ export enum AgentSessionsGrouping {
 
 export interface IAgentSessionsFilterOptions extends Partial<IAgentSessionsFilter> {
 
-	readonly filterMenuId?: MenuId;
+	readonly filterMenuId: MenuId;
 
 	readonly limitResults?: () => number | undefined;
 	notifyResults?(count: number): void;
@@ -41,7 +41,7 @@ const DEFAULT_EXCLUDES: IAgentSessionsFilterExcludes = Object.freeze({
 
 export class AgentSessionsFilter extends Disposable implements Required<IAgentSessionsFilter> {
 
-	private readonly STORAGE_KEY = `agentSessions.filterExcludes.agentsessionsviewerfiltersubmenu`;
+	private readonly STORAGE_KEY: string;
 
 	private readonly _onDidChange = this._register(new Emitter<void>());
 	readonly onDidChange = this._onDidChange.event;
@@ -60,6 +60,8 @@ export class AgentSessionsFilter extends Disposable implements Required<IAgentSe
 		@IStorageService private readonly storageService: IStorageService,
 	) {
 		super();
+
+		this.STORAGE_KEY = `agentSessions.filterExcludes.${this.options.filterMenuId.id.toLowerCase()}`;
 
 		this.updateExcludes(false);
 
@@ -114,34 +116,25 @@ export class AgentSessionsFilter extends Disposable implements Required<IAgentSe
 	private updateFilterActions(): void {
 		this.actionDisposables.clear();
 
-		const menuId = this.options.filterMenuId;
-		if (!menuId) {
-			return;
-		}
-
-		this.registerProviderActions(this.actionDisposables, menuId);
-		this.registerStateActions(this.actionDisposables, menuId);
-		this.registerArchivedActions(this.actionDisposables, menuId);
-		this.registerReadActions(this.actionDisposables, menuId);
-		this.registerResetAction(this.actionDisposables, menuId);
+		this.registerProviderActions(this.actionDisposables);
+		this.registerStateActions(this.actionDisposables);
+		this.registerArchivedActions(this.actionDisposables);
+		this.registerReadActions(this.actionDisposables);
+		this.registerResetAction(this.actionDisposables);
 	}
 
-	private registerProviderActions(disposables: DisposableStore, menuId: MenuId): void {
-		const providers: { id: string; label: string }[] = [{
-			id: AgentSessionProviders.Local,
-			label: getAgentSessionProviderName(AgentSessionProviders.Local)
-		}];
+	private registerProviderActions(disposables: DisposableStore): void {
+		const providers: { id: string; label: string }[] = Object.values(AgentSessionProviders).map(provider => ({
+			id: provider,
+			label: getAgentSessionProviderName(provider)
+		}));
 
-		for (const contribution of this.chatSessionsService.getAllChatSessionContributions()) {
-			if (providers.find(p => p.id === contribution.type)) {
+		for (const provider of this.chatSessionsService.getAllChatSessionContributions()) {
+			if (providers.find(p => p.id === provider.type)) {
 				continue; // already added
 			}
 
-			const knownProvider = getAgentSessionProvider(contribution.type);
-			providers.push({
-				id: contribution.type,
-				label: knownProvider ? getAgentSessionProviderName(knownProvider) : contribution.displayName
-			});
+			providers.push({ id: provider.type, label: provider.name });
 		}
 
 		const that = this;
@@ -150,10 +143,10 @@ export class AgentSessionsFilter extends Disposable implements Required<IAgentSe
 			disposables.add(registerAction2(class extends Action2 {
 				constructor() {
 					super({
-						id: `agentSessions.filter.toggleExclude:${provider.id}.${menuId.id.toLowerCase()}`,
+						id: `agentSessions.filter.toggleExclude:${provider.id}.${that.options.filterMenuId.id.toLowerCase()}`,
 						title: provider.label,
 						menu: {
-							id: menuId,
+							id: that.options.filterMenuId,
 							group: '1_providers',
 							order: counter++,
 						},
@@ -172,7 +165,7 @@ export class AgentSessionsFilter extends Disposable implements Required<IAgentSe
 		}
 	}
 
-	private registerStateActions(disposables: DisposableStore, menuId: MenuId): void {
+	private registerStateActions(disposables: DisposableStore): void {
 		const states: { id: AgentSessionStatus; label: string }[] = [
 			{ id: AgentSessionStatus.Completed, label: localize('agentSessionStatus.completed', "Completed") },
 			{ id: AgentSessionStatus.InProgress, label: localize('agentSessionStatus.inProgress', "In Progress") },
@@ -186,10 +179,10 @@ export class AgentSessionsFilter extends Disposable implements Required<IAgentSe
 			disposables.add(registerAction2(class extends Action2 {
 				constructor() {
 					super({
-						id: `agentSessions.filter.toggleExcludeState:${state.id}.${menuId.id.toLowerCase()}`,
+						id: `agentSessions.filter.toggleExcludeState:${state.id}.${that.options.filterMenuId.id.toLowerCase()}`,
 						title: state.label,
 						menu: {
-							id: menuId,
+							id: that.options.filterMenuId,
 							group: '2_states',
 							order: counter++,
 						},
@@ -208,15 +201,15 @@ export class AgentSessionsFilter extends Disposable implements Required<IAgentSe
 		}
 	}
 
-	private registerArchivedActions(disposables: DisposableStore, menuId: MenuId): void {
+	private registerArchivedActions(disposables: DisposableStore): void {
 		const that = this;
 		disposables.add(registerAction2(class extends Action2 {
 			constructor() {
 				super({
-					id: `agentSessions.filter.toggleExcludeArchived.${menuId.id.toLowerCase()}`,
+					id: `agentSessions.filter.toggleExcludeArchived.${that.options.filterMenuId.id.toLowerCase()}`,
 					title: localize('agentSessions.filter.archived', 'Archived'),
 					menu: {
-						id: menuId,
+						id: that.options.filterMenuId,
 						group: '3_props',
 						order: 1000,
 					},
@@ -229,15 +222,15 @@ export class AgentSessionsFilter extends Disposable implements Required<IAgentSe
 		}));
 	}
 
-	private registerReadActions(disposables: DisposableStore, menuId: MenuId): void {
+	private registerReadActions(disposables: DisposableStore): void {
 		const that = this;
 		disposables.add(registerAction2(class extends Action2 {
 			constructor() {
 				super({
-					id: `agentSessions.filter.toggleExcludeRead.${menuId.id.toLowerCase()}`,
+					id: `agentSessions.filter.toggleExcludeRead.${that.options.filterMenuId.id.toLowerCase()}`,
 					title: localize('agentSessions.filter.read', 'Read'),
 					menu: {
-						id: menuId,
+						id: that.options.filterMenuId,
 						group: '3_props',
 						order: 0,
 					},
@@ -250,15 +243,15 @@ export class AgentSessionsFilter extends Disposable implements Required<IAgentSe
 		}));
 	}
 
-	private registerResetAction(disposables: DisposableStore, menuId: MenuId): void {
+	private registerResetAction(disposables: DisposableStore): void {
 		const that = this;
 		disposables.add(registerAction2(class extends Action2 {
 			constructor() {
 				super({
-					id: `agentSessions.filter.resetExcludes.${menuId.id.toLowerCase()}`,
+					id: `agentSessions.filter.resetExcludes.${that.options.filterMenuId.id.toLowerCase()}`,
 					title: localize('agentSessions.filter.reset', "Reset"),
 					menu: {
-						id: menuId,
+						id: that.options.filterMenuId,
 						group: '4_reset',
 						order: 0,
 					},

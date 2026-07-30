@@ -1,11 +1,14 @@
 test/**
 test-workspace/**
 src/**
-tsconfig*.json
+tsconfig.json
 out/test/**
 out/**
-esbuild*.mts
+extension.webpack.config.js
+extension-browser.webpack.config.js
 cgmanifest.json
 .gitignore
 package-lock.json
 preview-src/**
+webpack.config.js
+esbuild-*

@@ -370,7 +370,6 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 		}
 		this._processListeners = [
 			newProcess.onProcessReady((e: IProcessReadyEvent) => {
-				this._logService.debug('onProcessReady', e);
 				this._processTraits = e;
 				this.shellProcessId = e.pid;
 				this._initialCwd = e.cwd;
@@ -380,7 +379,6 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 
 				if (this._preLaunchInputQueue.length > 0 && this._process) {
 					// Send any queued data that's waiting
-					this._logService.debug('sending prelaunch input queue', this._preLaunchInputQueue);
 					newProcess.input(this._preLaunchInputQueue.join(''));
 					this._preLaunchInputQueue.length = 0;
 				}
@@ -581,16 +579,16 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 		return os;
 	}
 
-	setDimensions(cols: number, rows: number, sync?: undefined, pixelWidth?: number, pixelHeight?: number): Promise<void>;
-	setDimensions(cols: number, rows: number, sync: false, pixelWidth?: number, pixelHeight?: number): Promise<void>;
-	setDimensions(cols: number, rows: number, sync: true, pixelWidth?: number, pixelHeight?: number): void;
-	setDimensions(cols: number, rows: number, sync?: boolean, pixelWidth?: number, pixelHeight?: number): MaybePromise<void> {
+	setDimensions(cols: number, rows: number): Promise<void>;
+	setDimensions(cols: number, rows: number, sync: false): Promise<void>;
+	setDimensions(cols: number, rows: number, sync: true): void;
+	setDimensions(cols: number, rows: number, sync?: boolean): MaybePromise<void> {
 		if (sync) {
-			this._resize(cols, rows, pixelWidth, pixelHeight);
+			this._resize(cols, rows);
 			return;
 		}
 
-		return this.ptyProcessReady.then(() => this._resize(cols, rows, pixelWidth, pixelHeight));
+		return this.ptyProcessReady.then(() => this._resize(cols, rows));
 	}
 
 	async setUnicodeVersion(version: '6' | '11'): Promise<void> {
@@ -606,13 +604,13 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 		await this._terminalService.setNextCommandId(process.id, commandLine, commandId);
 	}
 
-	private _resize(cols: number, rows: number, pixelWidth?: number, pixelHeight?: number) {
+	private _resize(cols: number, rows: number) {
 		if (!this._process) {
 			return;
 		}
 		// The child process could already be terminated
 		try {
-			this._process.resize(cols, rows, pixelWidth, pixelHeight);
+			this._process.resize(cols, rows);
 		} catch (error) {
 			// We tried to write to a closed pipe / channel.
 			if (error.code !== 'EPIPE' && error.code !== 'ERR_IPC_CHANNEL_CLOSED') {
@@ -634,7 +632,6 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 			}
 		} else {
 			// If the pty is not ready, queue the data received to send later
-			this._logService.debug('queueing data in prelaunch input queue', data);
 			this._preLaunchInputQueue.push(data);
 		}
 	}

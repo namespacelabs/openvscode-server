@@ -30,7 +30,6 @@ import { IRenameSymbolTrackerService } from '../../../../browser/services/rename
 import type { URI } from '../../../../../base/common/uri.js';
 import type { ICodeEditor } from '../../../../browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../../browser/services/codeEditorService.js';
-import { TextModelValueReference } from './textModelValueReference.js';
 
 enum RenameKind {
 	no = 'no',
@@ -534,8 +533,7 @@ export class RenameSymbolProcessor extends Disposable {
 			uri: textModel.uri
 		};
 
-		const ref = TextModelValueReference.snapshot(textModel);
-		return InlineSuggestionItem.create(suggestItem.withAction(renameAction), ref, false);
+		return InlineSuggestionItem.create(suggestItem.withAction(renameAction), textModel, false);
 	}
 
 	private async checkRenamePrecondition(suggestItem: InlineSuggestionItem, textModel: ITextModel, position: Position, oldName: string, newName: string, lastSymbolRename: IRange | undefined): Promise<PrepareNesRenameResult> {

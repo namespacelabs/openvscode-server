@@ -119,17 +119,17 @@ export class PromptCodeActionProvider implements CodeActionProvider {
 			return;
 		}
 		let value = toolsAttr.value;
-		if (value.type === 'scalar') {
+		if (value.type === 'string') {
 			value = parseCommaSeparatedList(value);
 		}
-		if (value.type !== 'sequence') {
+		if (value.type !== 'array') {
 			return;
 		}
 		const values = value.items;
 		const deprecatedNames = new Lazy(() => this.languageModelToolsService.getDeprecatedFullReferenceNames());
 		const edits: TextEdit[] = [];
 		for (const item of values) {
-			if (item.type !== 'scalar') {
+			if (item.type !== 'string') {
 				continue;
 			}
 			const newNames = deprecatedNames.value.get(item.value);

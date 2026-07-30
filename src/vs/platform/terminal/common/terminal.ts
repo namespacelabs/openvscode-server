@@ -64,7 +64,6 @@ export const enum TerminalSettingId {
 	FontWeight = 'terminal.integrated.fontWeight',
 	FontWeightBold = 'terminal.integrated.fontWeightBold',
 	CursorBlinking = 'terminal.integrated.cursorBlinking',
-	TextBlinking = 'terminal.integrated.textBlinking',
 	CursorStyle = 'terminal.integrated.cursorStyle',
 	CursorStyleInactive = 'terminal.integrated.cursorStyleInactive',
 	CursorWidth = 'terminal.integrated.cursorWidth',
@@ -339,7 +338,7 @@ export interface IPtyService {
 	shutdown(id: number, immediate: boolean): Promise<void>;
 	input(id: number, data: string): Promise<void>;
 	sendSignal(id: number, signal: string): Promise<void>;
-	resize(id: number, cols: number, rows: number, pixelWidth?: number, pixelHeight?: number): Promise<void>;
+	resize(id: number, cols: number, rows: number): Promise<void>;
 	clearBuffer(id: number): Promise<void>;
 	getInitialCwd(id: number): Promise<string>;
 	getCwd(id: number): Promise<string>;
@@ -391,7 +390,7 @@ export interface IPtyServiceContribution {
 	handleProcessReady(persistentProcessId: number, process: ITerminalChildProcess): void;
 	handleProcessDispose(persistentProcessId: number): void;
 	handleProcessInput(persistentProcessId: number, data: string): void;
-	handleProcessResize(persistentProcessId: number, cols: number, rows: number, pixelWidth?: number, pixelHeight?: number): void;
+	handleProcessResize(persistentProcessId: number, cols: number, rows: number): void;
 }
 
 export interface IPtyHostController {
@@ -810,7 +809,7 @@ export interface ITerminalChildProcess {
 	input(data: string): void;
 	sendSignal(signal: string): void;
 	processBinary(data: string): Promise<void>;
-	resize(cols: number, rows: number, pixelWidth?: number, pixelHeight?: number): void;
+	resize(cols: number, rows: number): void;
 	clearBuffer(): void | Promise<void>;
 
 	/**

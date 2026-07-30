@@ -11,17 +11,14 @@ pushd $ROOT
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	NAME=`node -p "require('./product.json').nameLong"`
-	EXE_NAME=`node -p "require('./product.json').nameShort"`
-	CODE="$ROOT/.build/electron/$NAME.app/Contents/MacOS/$EXE_NAME"
+	CODE="$ROOT/.build/electron/$NAME.app/Contents/MacOS/Electron"
 else
 	NAME=`node -p "require('./product.json').applicationName"`
 	CODE="$ROOT/.build/electron/$NAME"
 fi
 
 # Get electron
-if [[ -z "${VSCODE_SKIP_PRELAUNCH}" ]]; then
-	npm run electron
-fi
+npm run electron
 
 popd
 

@@ -4,16 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as dom from '../../../../../../base/browser/dom.js';
-import { renderAsPlaintext } from '../../../../../../base/browser/markdownRenderer.js';
 import { StandardKeyboardEvent } from '../../../../../../base/browser/keyboardEvent.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
-import { IMarkdownString, MarkdownString, isMarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { KeyCode } from '../../../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { hasKey } from '../../../../../../base/common/types.js';
 import { localize } from '../../../../../../nls.js';
-import { IAccessibilityService } from '../../../../../../platform/accessibility/common/accessibility.js';
-import { IMarkdownRendererService } from '../../../../../../platform/markdown/browser/markdownRenderer.js';
 import { defaultButtonStyles, defaultCheckboxStyles, defaultInputBoxStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { Button } from '../../../../../../base/browser/ui/button/button.js';
 import { InputBox } from '../../../../../../base/browser/ui/inputbox/inputBox.js';
@@ -58,7 +54,6 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	private readonly _multiSelectCheckboxes: Map<string, Checkbox[]> = new Map();
 	private readonly _freeformTextareas: Map<string, HTMLTextAreaElement> = new Map();
 	private readonly _inputBoxes: DisposableStore = this._register(new DisposableStore());
-	private readonly _questionRenderStore = this._register(new MutableDisposable<DisposableStore>());
 
 	/**
 	 * Disposable store for interactive UI components (header, nav buttons, etc.)
@@ -70,19 +65,11 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		public readonly carousel: IChatQuestionCarousel,
 		context: IChatContentPartRenderContext,
 		private readonly _options: IChatQuestionCarouselOptions,
-		@IMarkdownRendererService private readonly _markdownRendererService: IMarkdownRendererService,
 		@IHoverService private readonly _hoverService: IHoverService,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 	) {
 		super();
 
 		this.domNode = dom.$('.chat-question-carousel-container');
-
-		// Set up accessibility attributes for the carousel container
-		this.domNode.tabIndex = 0;
-		this.domNode.setAttribute('role', 'region');
-		this.domNode.setAttribute('aria-roledescription', localize('chat.questionCarousel.roleDescription', 'chat question'));
-		this._updateAriaLabel();
 
 		// Restore answers from carousel data if already submitted (e.g., after re-render due to virtualization)
 		if (carousel.data) {
@@ -208,7 +195,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		if (newIndex >= 0 && newIndex < this.carousel.questions.length) {
 			this.saveCurrentAnswer();
 			this._currentIndex = newIndex;
-			this.renderCurrentQuestion(true);
+			this.renderCurrentQuestion();
 		}
 	}
 
@@ -222,28 +209,11 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		if (this._currentIndex < this.carousel.questions.length - 1) {
 			// Move to next question
 			this._currentIndex++;
-			this.renderCurrentQuestion(true);
+			this.renderCurrentQuestion();
 		} else {
 			// Submit
 			this._options.onSubmit(this._answers);
 			this.hideAndShowSummary();
-		}
-	}
-
-	/**
-	 * Focuses the container element and announces the question for screen reader users.
-	 */
-	private _focusContainerAndAnnounce(): void {
-		this.domNode.focus();
-		const question = this.carousel.questions[this._currentIndex];
-		if (question) {
-			const questionText = question.message ?? question.title;
-			const messageContent = this.getQuestionText(questionText);
-			const questionCount = this.carousel.questions.length;
-			const alertMessage = questionCount === 1
-				? messageContent
-				: localize('chat.questionCarousel.questionAlertMulti', 'Question {0} of {1}: {2}', this._currentIndex + 1, questionCount, messageContent);
-			this._accessibilityService.alert(alertMessage);
 		}
 	}
 
@@ -270,7 +240,6 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	private clearInteractiveResources(): void {
 		// Dispose interactive UI disposables (header, nav buttons, etc.)
 		this._interactiveUIStore.clear();
-		this._questionRenderStore.clear();
 		this._inputBoxes.clear();
 		this._textInputBoxes.clear();
 		this._singleSelectItems.clear();
@@ -383,60 +352,10 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		}
 	}
 
-	/**
-	 * Returns whether auto-focus should be enabled.
-	 * Disabled when screen reader mode is active or when explicitly disabled via options.
-	 */
-	private _shouldAutoFocus(): boolean {
-		if (this._options.shouldAutoFocus === false) {
-			return false;
-		}
-		// Disable auto-focus for screen reader users to allow them to read the question first
-		return !this._accessibilityService.isScreenReaderOptimized();
-	}
-
-	/**
-	 * Updates the aria-label of the carousel container based on the current question.
-	 */
-	private _updateAriaLabel(): void {
-		const question = this.carousel.questions[this._currentIndex];
-		if (!question) {
-			this.domNode.setAttribute('aria-label', localize('chat.questionCarousel.label', 'Chat question'));
-			return;
-		}
-
-		const questionText = question.message ?? question.title;
-		const messageContent = this.getQuestionText(questionText);
-		const questionCount = this.carousel.questions.length;
-
-		if (questionCount === 1) {
-			this.domNode.setAttribute('aria-label', localize('chat.questionCarousel.singleQuestionLabel', 'Chat question: {0}', messageContent));
-		} else {
-			this.domNode.setAttribute('aria-label', localize('chat.questionCarousel.multiQuestionLabel', 'Chat question {0} of {1}: {2}', this._currentIndex + 1, questionCount, messageContent));
-		}
-	}
-
-	/**
-	 * Focuses the carousel container element.
-	 */
-	public focus(): void {
-		this.domNode.focus();
-	}
-
-	/**
-	 * Returns whether the carousel container has focus.
-	 */
-	public hasFocus(): boolean {
-		return dom.isAncestorOfActiveElement(this.domNode);
-	}
-
-	private renderCurrentQuestion(focusContainerForScreenReader: boolean = false): void {
+	private renderCurrentQuestion(): void {
 		if (!this._questionContainer || !this._prevButton || !this._nextButton) {
 			return;
 		}
-
-		const questionRenderStore = new DisposableStore();
-		this._questionRenderStore.value = questionRenderStore;
 
 		// Clear previous input boxes and stale references
 		this._inputBoxes.clear();
@@ -461,29 +380,26 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		const questionText = question.message ?? question.title;
 		if (questionText) {
 			const title = dom.$('.chat-question-title');
-			const messageContent = this.getQuestionText(questionText);
+			const messageContent = typeof questionText === 'string'
+				? questionText
+				: questionText.value;
 
 			title.setAttribute('aria-label', messageContent);
 
-			if (isMarkdownString(questionText)) {
-				const renderedTitle = questionRenderStore.add(this._markdownRendererService.render(MarkdownString.lift(questionText)));
-				title.appendChild(renderedTitle.element);
-			} else {
-				// Check for subtitle in parentheses at the end
-				const parenMatch = messageContent.match(/^(.+?)\s*(\([^)]+\))\s*$/);
-				if (parenMatch) {
-					// Main title (bold)
-					const mainTitle = dom.$('span.chat-question-title-main');
-					mainTitle.textContent = parenMatch[1];
-					title.appendChild(mainTitle);
+			// Check for subtitle in parentheses at the end
+			const parenMatch = messageContent.match(/^(.+?)\s*(\([^)]+\))\s*$/);
+			if (parenMatch) {
+				// Main title (bold)
+				const mainTitle = dom.$('span.chat-question-title-main');
+				mainTitle.textContent = parenMatch[1];
+				title.appendChild(mainTitle);
 
-					// Subtitle in parentheses (normal weight)
-					const subtitle = dom.$('span.chat-question-title-subtitle');
-					subtitle.textContent = ' ' + parenMatch[2];
-					title.appendChild(subtitle);
-				} else {
-					title.textContent = messageContent;
-				}
+				// Subtitle in parentheses (normal weight)
+				const subtitle = dom.$('span.chat-question-title-subtitle');
+				subtitle.textContent = ' ' + parenMatch[2];
+				title.appendChild(subtitle);
+			} else {
+				title.textContent = messageContent;
 			}
 			headerRow.appendChild(title);
 		}
@@ -527,15 +443,6 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			// Keep secondary style for next
 			this._nextButton!.element.classList.remove('chat-question-nav-submit');
 			this._nextButtonHover.value = this._hoverService.setupDelayedHover(this._nextButton!.element, { content: nextLabel });
-		}
-
-		// Update aria-label to reflect the current question
-		this._updateAriaLabel();
-
-		// In screen reader mode, focus the container and announce the question
-		// This must happen after all render calls to avoid focus being stolen
-		if (focusContainerForScreenReader && this._accessibilityService.isScreenReaderOptimized()) {
-			this._focusContainerAndAnnounce();
 		}
 
 		this._onDidChangeHeight.fire();
@@ -586,7 +493,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		this._textInputBoxes.set(question.id, inputBox);
 
 		// Focus on input when rendered using proper DOM scheduling
-		if (this._shouldAutoFocus()) {
+		if (this._options.shouldAutoFocus !== false) {
 			this._inputBoxes.add(dom.runAtThisOrScheduleAtNextAnimationFrame(dom.getWindow(inputBox.element), () => inputBox.focus()));
 		}
 	}
@@ -789,7 +696,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		}
 
 		// focus on the row when first rendered or textarea if it has content
-		if (this._shouldAutoFocus()) {
+		if (this._options.shouldAutoFocus !== false) {
 			if (previousFreeform) {
 				this._inputBoxes.add(dom.runAtThisOrScheduleAtNextAnimationFrame(dom.getWindow(freeformTextarea), () => {
 					freeformTextarea.focus();
@@ -984,7 +891,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		}
 
 		// Focus on the appropriate row when rendered or textarea if it has content
-		if (this._shouldAutoFocus()) {
+		if (this._options.shouldAutoFocus !== false) {
 			if (previousFreeform) {
 				this._inputBoxes.add(dom.runAtThisOrScheduleAtNextAnimationFrame(dom.getWindow(freeformTextarea), () => {
 					freeformTextarea.focus();
@@ -1054,10 +961,20 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 				const freeformTextarea = this._freeformTextareas.get(question.id);
 				const freeformValue = freeformTextarea?.value !== '' ? freeformTextarea?.value : undefined;
 
-				// Return whatever was selected - defaults are applied at render time when
-				// checkboxes are initially checked, so empty selection means user unchecked all
-				if (freeformValue || selectedValues.length > 0) {
-					return { selectedValues, freeformValue };
+				// Only include defaults if nothing selected AND no freeform input
+				let finalSelectedValues = selectedValues;
+				if (selectedValues.length === 0 && !freeformValue && question.defaultValue !== undefined) {
+					const defaultIds = Array.isArray(question.defaultValue)
+						? question.defaultValue
+						: [question.defaultValue];
+					const defaultValues = question.options
+						?.filter(opt => defaultIds.includes(opt.id))
+						.map(opt => opt.value);
+					finalSelectedValues = defaultValues?.filter(v => v !== undefined) || [];
+				}
+
+				if (freeformValue || finalSelectedValues.length > 0) {
+					return { selectedValues: finalSelectedValues, freeformValue };
 				}
 				return undefined;
 			}
@@ -1084,9 +1001,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	private renderSummary(): void {
 		// If no answers, show skipped message
 		if (this._answers.size === 0) {
-			if (this.carousel.isUsed) {
-				this.renderSkippedMessage();
-			}
+			this.renderSkippedMessage();
 			return;
 		}
 
@@ -1180,14 +1095,6 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			default:
 				return String(answer);
 		}
-	}
-
-	private getQuestionText(questionText: string | IMarkdownString): string {
-		if (typeof questionText === 'string') {
-			return questionText;
-		}
-
-		return renderAsPlaintext(questionText);
 	}
 
 	hasSameContent(other: IChatRendererContent, _followingContent: IChatRendererContent[], element: ChatTreeItem): boolean {

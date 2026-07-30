@@ -386,7 +386,7 @@ export namespace TaskGroup {
 
 	export const Test: TaskGroup = { _id: 'test', isDefault: false };
 
-	export function is(value: unknown): value is string {
+	export function is(value: any): value is string {
 		return value === Clean._id || value === Build._id || value === Rebuild._id || value === Test._id;
 	}
 
@@ -436,7 +436,7 @@ export interface ITaskSourceConfigElement {
 	workspace?: IWorkspace;
 	file: string;
 	index: number;
-	element: unknown;
+	element: any;
 }
 
 export interface ITaskConfig {
@@ -471,7 +471,7 @@ export interface IExtensionTaskSource extends IBaseTaskSource {
 
 export interface IExtensionTaskSourceTransfer {
 	__workspaceFolder: UriComponents;
-	__definition: { type: string;[name: string]: unknown };
+	__definition: { type: string;[name: string]: any };
 }
 
 export interface IInMemoryTaskSource extends IBaseTaskSource {
@@ -494,7 +494,7 @@ export type TaskSource = IWorkspaceTaskSource | IExtensionTaskSource | IInMemory
 export type FileBasedTaskSource = IWorkspaceTaskSource | IUserTaskSource | WorkspaceFileTaskSource;
 export interface ITaskIdentifier {
 	type: string;
-	[name: string]: unknown;
+	[name: string]: any;
 }
 
 export interface KeyedTaskIdentifier extends ITaskIdentifier {
@@ -664,10 +664,11 @@ export abstract class CommonTask {
 	}
 
 	public clone(): Task {
-		return this.fromObject(Object.assign({}, this as unknown as Record<string, unknown>));
+		// eslint-disable-next-line local/code-no-any-casts
+		return this.fromObject(Object.assign({}, <any>this));
 	}
 
-	protected abstract fromObject(object: Record<string, unknown>): Task;
+	protected abstract fromObject(object: any): Task;
 
 	public getWorkspaceFolder(): IWorkspaceFolder | undefined {
 		return undefined;
@@ -704,7 +705,8 @@ export abstract class CommonTask {
 	public getTaskExecution(): ITaskExecution {
 		const result: ITaskExecution = {
 			id: this._id,
-			task: this as unknown as Task
+			// eslint-disable-next-line local/code-no-any-casts
+			task: <any>this
 		};
 		return result;
 	}
@@ -804,7 +806,7 @@ export class CustomTask extends CommonTask {
 		}
 	}
 
-	public static is(value: unknown): value is CustomTask {
+	public static is(value: any): value is CustomTask {
 		return value instanceof CustomTask;
 	}
 
@@ -858,9 +860,8 @@ export class CustomTask extends CommonTask {
 		}
 	}
 
-	protected fromObject(object: Record<string, unknown>): CustomTask {
-		const obj = object as unknown as CustomTask;
-		return new CustomTask(obj._id, obj._source, obj._label, obj.type, obj.command, obj.hasDefinedMatchers, obj.runOptions, obj.configurationProperties);
+	protected fromObject(object: CustomTask): CustomTask {
+		return new CustomTask(object._id, object._source, object._label, object.type, object.command, object.hasDefinedMatchers, object.runOptions, object.configurationProperties);
 	}
 }
 
@@ -885,12 +886,12 @@ export class ConfiguringTask extends CommonTask {
 		this.configures = configures;
 	}
 
-	public static is(value: unknown): value is ConfiguringTask {
+	public static is(value: any): value is ConfiguringTask {
 		return value instanceof ConfiguringTask;
 	}
 
-	protected fromObject(object: Record<string, unknown>): Task {
-		return object as unknown as Task;
+	protected fromObject(object: any): Task {
+		return object;
 	}
 
 	public override getDefinition(): KeyedTaskIdentifier {
@@ -979,7 +980,7 @@ export class ContributedTask extends CommonTask {
 		return this.defines;
 	}
 
-	public static is(value: unknown): value is ContributedTask {
+	public static is(value: any): value is ContributedTask {
 		return value instanceof ContributedTask;
 	}
 
@@ -1018,9 +1019,8 @@ export class ContributedTask extends CommonTask {
 		return 'extension';
 	}
 
-	protected fromObject(object: Record<string, unknown>): ContributedTask {
-		const obj = object as unknown as ContributedTask;
-		return new ContributedTask(obj._id, obj._source, obj._label, obj.type, obj.defines, obj.command, obj.hasDefinedMatchers, obj.runOptions, obj.configurationProperties);
+	protected fromObject(object: ContributedTask): ContributedTask {
+		return new ContributedTask(object._id, object._source, object._label, object.type, object.defines, object.command, object.hasDefinedMatchers, object.runOptions, object.configurationProperties);
 	}
 }
 
@@ -1044,7 +1044,7 @@ export class InMemoryTask extends CommonTask {
 		return new InMemoryTask(this._id, this._source, this._label, this.type, this.runOptions, this.configurationProperties);
 	}
 
-	public static is(value: unknown): value is InMemoryTask {
+	public static is(value: any): value is InMemoryTask {
 		return value instanceof InMemoryTask;
 	}
 
@@ -1060,9 +1060,8 @@ export class InMemoryTask extends CommonTask {
 		return undefined;
 	}
 
-	protected fromObject(object: Record<string, unknown>): InMemoryTask {
-		const obj = object as unknown as InMemoryTask;
-		return new InMemoryTask(obj._id, obj._source, obj._label, obj.type, obj.runOptions, obj.configurationProperties);
+	protected fromObject(object: InMemoryTask): InMemoryTask {
+		return new InMemoryTask(object._id, object._source, object._label, object.type, object.runOptions, object.configurationProperties);
 	}
 }
 
@@ -1332,13 +1331,13 @@ export namespace TaskEvent {
 }
 
 export namespace KeyedTaskIdentifier {
-	function sortedStringify(literal: Record<string, unknown>): string {
+	function sortedStringify(literal: any): string {
 		const keys = Object.keys(literal).sort();
 		let result: string = '';
 		for (const key of keys) {
 			let stringified = literal[key];
 			if (stringified instanceof Object) {
-				stringified = sortedStringify(stringified as Record<string, unknown>);
+				stringified = sortedStringify(stringified);
 			} else if (typeof stringified === 'string') {
 				stringified = stringified.replace(/,/g, ',,');
 			}
@@ -1348,7 +1347,7 @@ export namespace KeyedTaskIdentifier {
 	}
 	export function create(value: ITaskIdentifier): KeyedTaskIdentifier {
 		const resultKey = sortedStringify(value);
-		const result = { _key: resultKey, type: value.taskType as string };
+		const result = { _key: resultKey, type: value.taskType };
 		Object.assign(result, value);
 		return result;
 	}
@@ -1391,7 +1390,7 @@ export namespace TaskDefinition {
 			return KeyedTaskIdentifier.create(copy);
 		}
 
-		const literal: { type: string;[name: string]: unknown } = Object.create(null);
+		const literal: { type: string;[name: string]: any } = Object.create(null);
 		literal.type = definition.taskType;
 		const required: Set<string> = new Set();
 		definition.required.forEach(element => required.add(element));

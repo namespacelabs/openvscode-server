@@ -252,12 +252,3 @@ registerActiveInstanceAction({
 });
 
 // #endregion
-
-// #region Accessibility Help
-
-import { AccessibleViewRegistry } from '../../../../../platform/accessibility/browser/accessibleViewRegistry.js';
-import { TerminalFindAccessibilityHelp } from './terminalFindAccessibilityHelp.js';
-
-AccessibleViewRegistry.register(new TerminalFindAccessibilityHelp());
-
-// #endregion

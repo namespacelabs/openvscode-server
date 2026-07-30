@@ -41,6 +41,24 @@ import {
 import { ManageTodoListToolToolId } from './manageTodoListTool.js';
 import { createToolSimpleTextResult } from './toolHelpers.js';
 
+/**
+ * Parses a multiplier string like "2X" or "0.5X" to a number.
+ * Returns 1 if parsing fails.
+ */
+export function parseMultiplier(multiplier: string | undefined): number {
+	if (!multiplier) {
+		// No multiplier- byok?
+		return 1000;
+	}
+	const match = /^([\d.]+)\s*[xX]$/i.exec(multiplier.trim());
+	if (!match) {
+		// Doesn't match 3x pattern, maybe auto mode
+		return 1;
+	}
+	const value = parseFloat(match[1]);
+	return isNaN(value) ? 1 : value;
+}
+
 const BaseModelDescription = `Launch a new agent to handle complex, multi-step tasks autonomously. This tool is good at researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries, use this agent to perform the search for you.
 
 - Agents do not run async or in the background, you will wait for the agent\'s result.
@@ -269,7 +287,6 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 				userSelectedModelId: modeModelId,
 				userSelectedTools: modeTools,
 				modeInstructions,
-				parentRequestId: invocation.chatRequestId,
 				hooks: collectedHooks,
 				hasHooksEnabled: !!collectedHooks && Object.values(collectedHooks).some(arr => arr.length > 0),
 			};
@@ -346,9 +363,12 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 				// Find the actual model identifier from the qualified name(s)
 				outer: for (const qualifiedName of modeModelQualifiedNames) {
 					const lmByQualifiedName = this.languageModelsService.lookupLanguageModelByQualifiedName(qualifiedName);
-					if (lmByQualifiedName?.identifier) {
-						modeModelId = lmByQualifiedName.identifier;
-						break outer;
+					for (const fullId of this.languageModelsService.getLanguageModelIds()) {
+						const lmById = this.languageModelsService.lookupLanguageModel(fullId);
+						if (lmById && lmById?.id === lmByQualifiedName?.id) {
+							modeModelId = fullId;
+							break outer;
+						}
 					}
 				}
 			}
@@ -358,10 +378,10 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 			if (modeModelId && modeModelId !== mainModelId) {
 				const mainModelMetadata = mainModelId ? this.languageModelsService.lookupLanguageModel(mainModelId) : undefined;
 				const subagentModelMetadata = this.languageModelsService.lookupLanguageModel(modeModelId);
-				const mainMultiplier = mainModelMetadata?.multiplierNumeric;
-				const subagentMultiplier = subagentModelMetadata?.multiplierNumeric;
-				if (mainMultiplier !== undefined && subagentMultiplier !== undefined && subagentMultiplier > mainMultiplier) {
-					this.logService.warn(`[RunSubagentTool] Subagent '${subagent.name}' requested model '${subagentModelMetadata?.name}' (multiplier: ${subagentMultiplier}) which has a larger multiplier than the main agent model '${mainModelMetadata?.name}' (multiplier: ${mainMultiplier}). Falling back to the main agent model.`);
+				const mainMultiplier = parseMultiplier(mainModelMetadata?.multiplier);
+				const subagentMultiplier = parseMultiplier(subagentModelMetadata?.multiplier);
+				if (subagentMultiplier > mainMultiplier) {
+					this.logService.warn(`[RunSubagentTool] Subagent '${subagent.name}' requested model '${subagentModelMetadata?.name}' (multiplier: ${subagentModelMetadata?.multiplier ?? 'unknown'}) which has a larger multiplier than the main agent model '${mainModelMetadata?.name}' (multiplier: ${mainModelMetadata?.multiplier ?? 'unknown'}). Falling back to the main agent model.`);
 					modeModelId = mainModelId;
 				}
 			}

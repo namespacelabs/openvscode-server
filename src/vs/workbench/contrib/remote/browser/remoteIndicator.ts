@@ -851,7 +851,7 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 
 		if (!this.remoteMetadataInitialized) {
 			quickPick.busy = true;
-			disposables.add(this.onDidChangeEntries(() => {
+			this._register(this.onDidChangeEntries(() => {
 				// If quick pick is open, update the quick pick items after initialization.
 				quickPick.busy = false;
 				quickPick.items = computeItems();

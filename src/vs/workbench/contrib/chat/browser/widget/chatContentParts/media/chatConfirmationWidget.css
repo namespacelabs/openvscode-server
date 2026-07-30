@@ -202,12 +202,12 @@
 .chat-confirmation-widget2 {
 	margin-bottom: 8px;
 	border: 1px solid var(--vscode-chat-requestBorder);
-	border-radius: var(--vscode-cornerRadius-medium);
+	border-radius: 4px;
 }
 
 .chat-confirmation-widget2 .chat-confirmation-widget-title {
 	border-bottom: 1px solid var(--vscode-chat-requestBorder);
-	padding: 4px 8px;
+	padding: 5px 9px;
 	display: flex;
 	justify-content: space-between;
 	column-gap: 10px;
@@ -217,10 +217,6 @@
 
 		p {
 			margin: 0 !important;
-		}
-
-		.codicon {
-			margin-right: 4px;
 		}
 	}
 
@@ -265,7 +261,7 @@
 
 .chat-confirmation-message-terminal .chat-confirmation-message-terminal-disclaimer p:last-child {
 	margin-bottom: 0 !important;
-	padding: 4px 8px 0 8px;
+	padding: 5px 9px 0 9px;
 }
 
 .chat-confirmation-widget-container.hideButtons .chat-confirmation-widget-buttons,
@@ -275,7 +271,7 @@
 
 .chat-confirmation-widget2 .chat-confirmation-widget-buttons {
 	display: flex;
-	padding: 4px 8px;
+	padding: 5px 9px;
 
 	.chat-buttons {
 		display: flex;
@@ -286,14 +282,6 @@
 			overflow-wrap: break-word;
 			width: inherit;
 		}
-	}
-
-	.monaco-button-dropdown > .monaco-button.monaco-dropdown-button {
-		padding: 0px 4px 0 3px;
-	}
-
-	.monaco-button-dropdown > .monaco-button.monaco-dropdown-button.codicon[class*='codicon-'] {
-		font-size: 12px;
 	}
 }
 
@@ -329,7 +317,7 @@
 		}
 
 		.codicon {
-			font-size: 12px;
+			font-size: var(--vscode-chat-font-size-body-s);
 		}
 
 		&:hover {

@@ -432,19 +432,6 @@ export class ChatAgentResponseStream {
 
 					return this;
 				},
-				usage(usage) {
-					throwIfDone(this.usage);
-					checkProposedApiEnabled(that._extension, 'chatParticipantAdditions');
-
-					const dto: IChatProgressDto = {
-						kind: 'usage',
-						promptTokens: usage.promptTokens,
-						completionTokens: usage.completionTokens,
-						promptTokenDetails: usage.promptTokenDetails
-					};
-					_report(dto);
-					return this;
-				},
 			});
 		}
 
@@ -486,15 +473,6 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 
 	private readonly _onDidDisposeChatSession = this._register(new Emitter<string>());
 	readonly onDidDisposeChatSession = this._onDidDisposeChatSession.event;
-
-	private _activeChatPanelSessionResource: URI | undefined;
-
-	private readonly _onDidChangeActiveChatPanelSessionResource = this._register(new Emitter<URI | undefined>());
-	readonly onDidChangeActiveChatPanelSessionResource = this._onDidChangeActiveChatPanelSessionResource.event;
-
-	get activeChatPanelSessionResource(): URI | undefined {
-		return this._activeChatPanelSessionResource;
-	}
 
 	constructor(
 		mainContext: IMainContext,
@@ -755,7 +733,6 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 						label: context.chatSessionContext.isUntitled ? 'Untitled Session' : 'Session',
 					},
 					isUntitled: context.chatSessionContext.isUntitled,
-					initialSessionOptions: context.chatSessionContext.initialSessionOptions,
 				};
 			}
 
@@ -792,7 +769,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 					checkProposedApiEnabled(agent.extension, 'chatParticipantPrivate');
 				}
 
-				return { errorDetails, timings: stream?.timings, metadata: result?.metadata, nextQuestion: result?.nextQuestion, details: result?.details } satisfies IChatAgentResult;
+				return { errorDetails, timings: stream?.timings, metadata: result?.metadata, nextQuestion: result?.nextQuestion, details: result?.details, usage: result?.usage } satisfies IChatAgentResult;
 			}), token);
 		} catch (e) {
 			this._logService.error(e, agent.extension);
@@ -885,16 +862,6 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 		if (sessionId) {
 			this._onDidDisposeChatSession.fire(sessionId);
 		}
-	}
-
-	$acceptActiveChatSession(sessionResourceDto: UriComponents | undefined): void {
-		const sessionResource = sessionResourceDto ? URI.revive(sessionResourceDto) : undefined;
-		if (this._activeChatPanelSessionResource?.toString() === sessionResource?.toString()) {
-			return;
-		}
-
-		this._activeChatPanelSessionResource = sessionResource;
-		this._onDidChangeActiveChatPanelSessionResource.fire(sessionResource);
 	}
 
 	async $provideFollowups(requestDto: Dto<IChatAgentRequest>, handle: number, result: IChatAgentResult, context: { history: IChatAgentHistoryEntryDto[] }, token: CancellationToken): Promise<IChatFollowup[]> {
@@ -1245,8 +1212,6 @@ class ExtHostChatAgent {
 				disposed = true;
 				that._followupProvider = undefined;
 				that._onDidReceiveFeedback.dispose();
-				that._onDidPerformAction.dispose();
-				that._pauseStateEmitter.dispose();
 				that._proxy.$unregisterAgent(that._handle);
 			},
 		} satisfies vscode.ChatParticipant;

@@ -11,7 +11,6 @@ import { IInstantiationService } from '../../../../../../../platform/instantiati
 import { IMarkdownRenderer } from '../../../../../../../platform/markdown/browser/markdownRenderer.js';
 import { IChatToolInvocation, IChatToolInvocationSerialized, ToolConfirmKind } from '../../../../common/chatService/chatService.js';
 import { IChatRendererContent } from '../../../../common/model/chatViewModel.js';
-import { IChatTodoListService } from '../../../../common/tools/chatTodoListService.js';
 import { CodeBlockModelCollection } from '../../../../common/widget/codeBlockModelCollection.js';
 import { isToolResultInputOutputDetails, isToolResultOutputDetails, ToolInvocationPresentation } from '../../../../common/tools/languageModelToolsService.js';
 import { ChatTreeItem, IChatCodeBlockInfo } from '../../../chat.js';
@@ -22,7 +21,6 @@ import { ExtensionsInstallConfirmationWidgetSubPart } from './chatExtensionsInst
 import { ChatInputOutputMarkdownProgressPart } from './chatInputOutputMarkdownProgressPart.js';
 import { ChatMcpAppSubPart, IMcpAppRenderData } from './chatMcpAppSubPart.js';
 import { ChatResultListSubPart } from './chatResultListSubPart.js';
-import { ChatSimpleToolProgressPart } from './chatSimpleToolProgressPart.js';
 import { ChatTerminalToolConfirmationSubPart } from './chatTerminalToolConfirmationSubPart.js';
 import { ChatTerminalToolProgressPart } from './chatTerminalToolProgressPart.js';
 import { ToolConfirmationSubPart } from './chatToolConfirmationSubPart.js';
@@ -63,28 +61,12 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 		private readonly announcedToolProgressKeys: Set<string> | undefined,
 		private readonly codeBlockStartIndex: number,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IChatTodoListService private readonly chatTodoListService: IChatTodoListService,
 	) {
 		super();
 
 		this.domNode = dom.$('.chat-tool-invocation-part');
 		if (toolInvocation.presentation === 'hidden') {
 			return;
-		}
-
-		// Update the todo list service if this tool invocation contains todo data
-		if (toolInvocation.toolSpecificData?.kind === 'todoList') {
-			const sessionResource = context.element.sessionResource;
-			const todos = toolInvocation.toolSpecificData.todoList.map((todo, index) => {
-				const parsedId = parseInt(todo.id, 10);
-				const id = Number.isNaN(parsedId) ? index + 1 : parsedId;
-				return {
-					id,
-					title: todo.title,
-					status: todo.status as 'not-started' | 'in-progress' | 'completed'
-				};
-			});
-			this.chatTodoListService.setTodos(sessionResource, todos);
 		}
 
 		if (toolInvocation.kind === 'toolInvocation') {
@@ -185,24 +167,6 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 		if (this.toolInvocation.toolSpecificData?.kind === 'terminal') {
 			return this.instantiationService.createInstance(ChatTerminalToolProgressPart, this.toolInvocation, this.toolInvocation.toolSpecificData, this.context, this.renderer, this.editorPool, this.currentWidthDelegate, this.codeBlockStartIndex, this.codeBlockModelCollection);
 		}
-
-		if (this.toolInvocation.toolSpecificData?.kind === 'resources' && this.toolInvocation.toolSpecificData.values.length > 0) {
-			return this.instantiationService.createInstance(ChatResultListSubPart, this.toolInvocation, this.context, this.toolInvocation.pastTenseMessage ?? this.toolInvocation.invocationMessage, this.toolInvocation.toolSpecificData.values, this.listPool);
-		}
-
-		if (this.toolInvocation.toolSpecificData?.kind === 'simpleToolInvocation') {
-			return this.instantiationService.createInstance(
-				ChatSimpleToolProgressPart,
-				this.toolInvocation,
-				this.context,
-				this.codeBlockStartIndex,
-				this.toolInvocation.pastTenseMessage ?? this.toolInvocation.invocationMessage,
-				this.toolInvocation.originMessage,
-				this.toolInvocation.toolSpecificData,
-				false,
-			);
-		}
-
 
 		const resultDetails = IChatToolInvocation.resultDetails(this.toolInvocation);
 		if (Array.isArray(resultDetails) && resultDetails.length) {

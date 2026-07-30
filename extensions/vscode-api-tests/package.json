@@ -7,7 +7,6 @@
   "enabledApiProposals": [
     "activeComment",
     "authSession",
-    "environmentPower",
     "chatParticipantPrivate",
     "chatProvider",
     "contribStatusBarItems",
@@ -19,7 +18,6 @@
     "editorInsets",
     "embeddings",
     "envIsAppPortable",
-    "envIsConnectionMetered",
     "extensionRuntime",
     "extensionsAny",
     "externalUriOpener",

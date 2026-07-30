@@ -603,14 +603,13 @@ export class Grid<T extends IView = IView> extends Disposable {
 	/**
 	 * Maximizes the specified view and hides all other views.
 	 * @param view The view to maximize.
-	 * @param excludeViews Optional array of views to exclude from being hidden.
 	 */
-	maximizeView(view: T, excludeViews: readonly T[] = []) {
+	maximizeView(view: T) {
 		if (this.views.size < 2) {
 			throw new Error('At least two views are required to maximize a view');
 		}
 		const location = this.getViewLocation(view);
-		this.gridview.maximizeView(location, excludeViews);
+		this.gridview.maximizeView(location);
 	}
 
 	exitMaximizedView(): void {

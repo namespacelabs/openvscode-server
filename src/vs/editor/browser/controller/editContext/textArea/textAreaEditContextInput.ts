@@ -185,8 +185,7 @@ export class TextAreaInput extends Disposable {
 		}
 		this._register(Event.runAndSubscribe(this._accessibilityService.onDidChangeScreenReaderOptimized, () => {
 			if (this._accessibilityService.isScreenReaderOptimized() && !this._asyncFocusGainWriteScreenReaderContent.value) {
-				// Don't use this._register() here - the MutableDisposable already handles cleanup
-				this._asyncFocusGainWriteScreenReaderContent.value = new RunOnceScheduler(() => this.writeNativeTextAreaContent('asyncFocusGain'), 0);
+				this._asyncFocusGainWriteScreenReaderContent.value = this._register(new RunOnceScheduler(() => this.writeNativeTextAreaContent('asyncFocusGain'), 0));
 			} else {
 				this._asyncFocusGainWriteScreenReaderContent.clear();
 			}

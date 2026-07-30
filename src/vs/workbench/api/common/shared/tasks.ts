@@ -10,7 +10,7 @@ import { ITaskExecution } from '../../../contrib/tasks/common/tasks.js';
 
 export interface ITaskDefinitionDTO {
 	type: string;
-	[name: string]: unknown;
+	[name: string]: any;
 }
 
 export interface ITaskPresentationOptionsDTO {

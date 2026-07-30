@@ -42,10 +42,9 @@ import { DEFAULT_EDITOR_ASSOCIATION, SaveReason } from '../../common/editor.js';
 import { IViewBadge } from '../../common/views.js';
 import { IChatAgentRequest, IChatAgentResult } from '../../contrib/chat/common/participants/chatAgents.js';
 import { IChatRequestModeInstructions } from '../../contrib/chat/common/model/chatModel.js';
-import { IChatAgentMarkdownContentWithVulnerability, IChatCodeCitation, IChatCommandButton, IChatConfirmation, IChatContentInlineReference, IChatContentReference, IChatExtensionsContent, IChatExternalToolInvocationUpdate, IChatFollowup, IChatHookPart, IChatMarkdownContent, IChatMoveMessage, IChatMultiDiffDataSerialized, IChatProgressMessage, IChatPullRequestContent, IChatQuestionCarousel, IChatResponseCodeblockUriPart, IChatTaskDto, IChatTaskResult, IChatTerminalToolInvocationData, IChatTextEdit, IChatThinkingPart, IChatToolInvocationSerialized, IChatTreeData, IChatUserActionEvent, IChatWarningMessage, IChatWorkspaceEdit } from '../../contrib/chat/common/chatService/chatService.js';
+import { IChatAgentMarkdownContentWithVulnerability, IChatCodeCitation, IChatCommandButton, IChatConfirmation, IChatContentInlineReference, IChatContentReference, IChatExtensionsContent, IChatFollowup, IChatHookPart, IChatMarkdownContent, IChatMoveMessage, IChatMultiDiffDataSerialized, IChatProgressMessage, IChatPullRequestContent, IChatQuestionCarousel, IChatResponseCodeblockUriPart, IChatTaskDto, IChatTaskResult, IChatTerminalToolInvocationData, IChatTextEdit, IChatThinkingPart, IChatToolInvocationSerialized, IChatTreeData, IChatUserActionEvent, IChatWarningMessage, IChatWorkspaceEdit } from '../../contrib/chat/common/chatService/chatService.js';
 import { LocalChatSessionUri } from '../../contrib/chat/common/model/chatUri.js';
 import { ChatRequestToolReferenceEntry, IChatRequestVariableEntry, isImageVariableEntry, isPromptFileVariableEntry, isPromptTextVariableEntry } from '../../contrib/chat/common/attachments/chatVariableEntries.js';
-import { ChatSessionStatus, IChatSessionItem } from '../../contrib/chat/common/chatSessionsService.js';
 import { ChatAgentLocation } from '../../contrib/chat/common/constants.js';
 import { IChatRequestHooks, IHookCommand, resolveEffectiveCommand } from '../../contrib/chat/common/promptSyntax/hookSchema.js';
 import { IToolInvocationContext, IToolResult, IToolResultInputOutputDetails, IToolResultOutputDetails, ToolDataSource, ToolInvocationPresentation } from '../../contrib/chat/common/tools/languageModelToolsService.js';
@@ -2860,29 +2859,14 @@ export namespace ChatResponseExtensionsPart {
 }
 
 export namespace ChatResponsePullRequestPart {
-	export function from(part: Omit<vscode.ChatResponsePullRequestPart, 'command'> & { command?: vscode.Command }, commandsConverter: CommandsConverter, commandDisposables: DisposableStore): Dto<IChatPullRequestContent> {
-		// If the command isn't in the converter, then this session may have been restored, and the command args don't exist anymore
-		let command: extHostProtocol.ICommandDto;
-		if (!part.command) {
-			if (!part.uri) {
-				throw new Error('Pull request part must have a command if URI is provided');
-			}
-			command = {
-				title: 'Open Pull Request',
-				id: 'vscode.open',
-				arguments: [part.uri]
-			};
-		} else {
-			command = commandsConverter.toInternal(part.command, commandDisposables);
-		}
+	export function from(part: vscode.ChatResponsePullRequestPart): Dto<IChatPullRequestContent> {
 		return {
 			kind: 'pullRequest',
 			author: part.author,
 			title: part.title,
 			description: part.description,
 			uri: part.uri,
-			linkTag: part.linkTag,
-			command
+			linkTag: part.linkTag
 		};
 	}
 }
@@ -2901,7 +2885,7 @@ export namespace ChatResponseMovePart {
 }
 
 export namespace ChatToolInvocationPart {
-	export function from(part: vscode.ChatToolInvocationPart): IChatToolInvocationSerialized | IChatExternalToolInvocationUpdate {
+	export function from(part: vscode.ChatToolInvocationPart): IChatToolInvocationSerialized {
 		// Check if toolSpecificData is ChatMcpToolInvocationData (has input and output)
 		// If so, convert to resultDetails for rendering via ChatInputOutputMarkdownProgressPart
 		let resultDetails: IToolResultInputOutputDetails | undefined;
@@ -2915,29 +2899,7 @@ export namespace ChatToolInvocationPart {
 			toolSpecificData = part.toolSpecificData ? convertToolSpecificData(part.toolSpecificData) : undefined;
 		}
 
-		const presentation = part.presentation === 'hidden'
-			? ToolInvocationPresentation.Hidden
-			: part.presentation === 'hiddenAfterComplete'
-				? ToolInvocationPresentation.HiddenAfterComplete
-				: undefined;
-
-		// When isComplete is explicitly set (not undefined), use the update DTO to enable
-		// live tool invocation updates. Extensions can push with isComplete: false to start
-		// an in-progress invocation, then push again with isComplete: true to complete it.
-		if (part.enablePartialUpdate) {
-			return {
-				kind: 'externalToolInvocationUpdate',
-				toolCallId: part.toolCallId,
-				toolName: part.toolName,
-				isComplete: !!part.isComplete,
-				invocationMessage: part.invocationMessage ? MarkdownString.from(part.invocationMessage) : undefined,
-				pastTenseMessage: part.pastTenseMessage ? MarkdownString.from(part.pastTenseMessage) : undefined,
-				toolSpecificData,
-				subagentInvocationId: part.subAgentInvocationId,
-			};
-		}
-
-		// Convert extension API ChatToolInvocationPart to internal serialized format (legacy path)
+		// Convert extension API ChatToolInvocationPart to internal serialized format
 		return {
 			kind: 'toolInvocationSerialized',
 			toolCallId: part.toolCallId,
@@ -2946,12 +2908,16 @@ export namespace ChatToolInvocationPart {
 			originMessage: part.originMessage ? MarkdownString.from(part.originMessage) : undefined,
 			pastTenseMessage: part.pastTenseMessage ? MarkdownString.from(part.pastTenseMessage) : undefined,
 			isConfirmed: part.isConfirmed,
-			isComplete: true,
+			isComplete: part.isComplete ?? true,
 			source: ToolDataSource.External,
 			// isError: part.isError ?? false,
 			toolSpecificData,
 			resultDetails,
-			presentation,
+			presentation: part.presentation === 'hidden'
+				? ToolInvocationPresentation.Hidden
+				: part.presentation === 'hiddenAfterComplete'
+					? ToolInvocationPresentation.HiddenAfterComplete
+					: undefined,
 			subAgentInvocationId: part.subAgentInvocationId
 		};
 	}
@@ -2987,13 +2953,8 @@ export namespace ChatToolInvocationPart {
 				language: data.language
 			};
 		} else if ('commandLine' in data && 'language' in data) {
-			const presentationOverrides = data.presentationOverrides && typeof data.presentationOverrides.commandLine === 'string' ? {
-				commandLine: data.presentationOverrides.commandLine,
-				language: data.presentationOverrides.language
-			} : undefined;
 			const result: IChatTerminalToolInvocationData = {
 				kind: 'terminal',
-				presentationOverrides,
 				commandLine: data.commandLine,
 				language: data.language,
 				terminalCommandOutput: typeof data.output?.text === 'string' ? {
@@ -3006,80 +2967,15 @@ export namespace ChatToolInvocationPart {
 			};
 
 			return result;
-		} else if ('todoList' in data && Array.isArray(data.todoList)) {
-			// Convert extension API todo tool data to internal format
-			return {
-				kind: 'todoList',
-				todoList: data.todoList.map((todo: any) => ({
-					id: String(todo.id),
-					title: todo.title,
-					status: todoStatusEnumToString(todo.status)
-				}))
-			};
-		} else if ('input' in data && 'output' in data && !Array.isArray(data.output)) {
-			// Convert extension API simple tool invocation data to internal format
-			return {
-				kind: 'simpleToolInvocation',
-				input: typeof data.input === 'string' ? data.input : '',
-				output: typeof data.output === 'string' ? data.output : ''
-			};
-		} else if (data && 'values' in data && Array.isArray(data.values)) {
-			// Convert extension API resources tool data to internal format
-			return {
-				kind: 'resources',
-				values: data.values.map((v: any) => {
-					if (v instanceof types.Location) {
-						return Location.from(v);
-					} else {
-						return URI.revive(v);
-					}
-				})
-			};
-		} else if (data instanceof types.ChatSubagentToolInvocationData) {
-			// Convert extension API subagent tool data to internal format
-			return {
-				kind: 'subagent',
-				description: data.description,
-				agentName: data.agentName,
-				prompt: data.prompt,
-				result: data.result,
-			};
 		}
 		return data;
-	}
-
-	function todoStatusEnumToString(status: types.ChatTodoStatus | string): string {
-		// Handle enum values
-		switch (status) {
-			case types.ChatTodoStatus.NotStarted:
-				return 'not-started';
-			case types.ChatTodoStatus.InProgress:
-				return 'in-progress';
-			case types.ChatTodoStatus.Completed:
-				return 'completed';
-			default:
-				return 'not-started';
-		}
-	}
-
-	function todoStatusStringToEnum(status: string): types.ChatTodoStatus {
-		switch (status) {
-			case 'not-started':
-				return types.ChatTodoStatus.NotStarted;
-			case 'in-progress':
-				return types.ChatTodoStatus.InProgress;
-			case 'completed':
-				return types.ChatTodoStatus.Completed;
-			default:
-				return types.ChatTodoStatus.NotStarted;
-		}
 	}
 
 	export function to(part: any): vscode.ChatToolInvocationPart {
 		const toolInvocation = new types.ChatToolInvocationPart(
 			part.toolId || part.toolName,
 			part.toolCallId,
-			part.errorMessage
+			part.isError
 		);
 
 		if (part.invocationMessage) {
@@ -3145,19 +3041,6 @@ export namespace ChatToolInvocationPart {
 			return {
 				commandLine: data.commandLine,
 				language: data.language
-			};
-		} else if (data.kind === 'todoList') {
-			// Convert internal todo tool data to extension API format
-			return {
-				todoList: data.todoList.map((todo: any, index: number) => {
-					const parsed = Number(todo.id);
-					const id = Number.isFinite(parsed) ? parsed : index;
-					return {
-						id,
-						title: todo.title,
-						status: todoStatusStringToEnum(todo.status)
-					};
-				})
 			};
 		}
 		return data;
@@ -3362,7 +3245,7 @@ export namespace ChatResponsePart {
 		} else if (part instanceof types.ChatResponseExtensionsPart) {
 			return ChatResponseExtensionsPart.from(part);
 		} else if (part instanceof types.ChatResponsePullRequestPart) {
-			return ChatResponsePullRequestPart.from(part, commandsConverter, commandDisposables);
+			return ChatResponsePullRequestPart.from(part);
 		} else if (part instanceof types.ChatToolInvocationPart) {
 			return ChatToolInvocationPart.from(part);
 		} else if (part instanceof types.ChatResponseWorkspaceEditPart) {
@@ -3434,7 +3317,7 @@ export namespace ChatAgentRequest {
 			acceptedConfirmationData: request.acceptedConfirmationData,
 			rejectedConfirmationData: request.rejectedConfirmationData,
 			location2,
-			toolInvocationToken: Object.freeze<IToolInvocationContext>({ sessionResource: request.sessionResource }) as never,
+			toolInvocationToken: Object.freeze<IToolInvocationContext>({ sessionId, sessionResource: request.sessionResource }) as never,
 			tools,
 			model,
 			editedFileEvents: request.editedFileEvents,
@@ -3442,7 +3325,6 @@ export namespace ChatAgentRequest {
 			modeInstructions2: ChatRequestModeInstructions.to(request.modeInstructions),
 			subAgentInvocationId: request.subAgentInvocationId,
 			subAgentName: request.subAgentName,
-			parentRequestId: request.parentRequestId,
 			hasHooksEnabled: request.hasHooksEnabled ?? false,
 			hooks: request.hooks ? ChatRequestHooksConverter.to(request.hooks) : undefined,
 		};
@@ -3468,8 +3350,6 @@ export namespace ChatAgentRequest {
 			delete (requestWithAllProps as any).subAgentInvocationId;
 			// eslint-disable-next-line local/code-no-any-casts
 			delete (requestWithAllProps as any).subAgentName;
-			// eslint-disable-next-line local/code-no-any-casts
-			delete (requestWithAllProps as any).parentRequestId;
 			// eslint-disable-next-line local/code-no-any-casts
 			delete (requestWithAllProps as any).hasHooksEnabled;
 			// eslint-disable-next-line local/code-no-any-casts
@@ -3639,6 +3519,7 @@ export namespace ChatAgentResult {
 			metadata: reviveMetadata(result.metadata),
 			nextQuestion: result.nextQuestion,
 			details: result.details,
+			usage: result.usage,
 		};
 	}
 	export function from(result: vscode.ChatResult): Dto<IChatAgentResult> {
@@ -3647,6 +3528,7 @@ export namespace ChatAgentResult {
 			metadata: result.metadata,
 			nextQuestion: result.nextQuestion,
 			details: result.details,
+			usage: result.usage,
 		};
 	}
 
@@ -4125,53 +4007,6 @@ export namespace ChatHookCommand {
 			cwd: hook.cwd,
 			env: hook.env,
 			timeout: hook.timeout,
-		};
-	}
-}
-
-export namespace ChatSessionItem {
-
-	function convertStatus(status: vscode.ChatSessionStatus | undefined): ChatSessionStatus | undefined {
-		if (status === undefined) {
-			return undefined;
-		}
-
-		switch (status) {
-			case 0: // vscode.ChatSessionStatus.Failed
-				return ChatSessionStatus.Failed;
-			case 1: // vscode.ChatSessionStatus.Completed
-				return ChatSessionStatus.Completed;
-			case 2: // vscode.ChatSessionStatus.InProgress
-				return ChatSessionStatus.InProgress;
-			case 3: // vscode.ChatSessionStatus.NeedsInput
-				return ChatSessionStatus.NeedsInput;
-			default:
-				return undefined;
-		}
-	}
-
-	export function from(sessionContent: vscode.ChatSessionItem): Dto<IChatSessionItem> {
-		// Support both new (created, lastRequestStarted, lastRequestEnded) and old (startTime, endTime) timing properties
-		const timing = sessionContent.timing;
-		const created = timing?.created ?? timing?.startTime ?? 0;
-		const lastRequestStarted = timing?.lastRequestStarted ?? timing?.startTime;
-		const lastRequestEnded = timing?.lastRequestEnded ?? timing?.endTime;
-
-		return {
-			resource: sessionContent.resource,
-			label: sessionContent.label,
-			description: sessionContent.description ? MarkdownString.from(sessionContent.description) : undefined,
-			badge: sessionContent.badge ? MarkdownString.from(sessionContent.badge) : undefined,
-			status: convertStatus(sessionContent.status),
-			archived: sessionContent.archived,
-			tooltip: MarkdownString.fromStrict(sessionContent.tooltip),
-			timing: {
-				created,
-				lastRequestStarted,
-				lastRequestEnded,
-			},
-			changes: sessionContent.changes instanceof Array ? sessionContent.changes : undefined,
-			metadata: sessionContent.metadata,
 		};
 	}
 }

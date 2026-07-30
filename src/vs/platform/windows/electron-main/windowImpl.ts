@@ -46,7 +46,6 @@ import { IInstantiationService } from '../../instantiation/common/instantiation.
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { errorHandler } from '../../../base/common/errors.js';
 import { FocusMode } from '../../native/common/native.js';
-import { Color } from '../../../base/common/color.js';
 
 export interface IWindowCreationOptions {
 	readonly state: IWindowState;
@@ -405,10 +404,7 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 
 	private static readonly windowControlHeightStateStorageKey = 'windowControlHeight';
 
-	private windowControlsDimmed = false;
-	private lastWindowControlColors: { backgroundColor?: string; foregroundColor?: string } | undefined;
-
-	updateWindowControls(options: { height?: number; backgroundColor?: string; foregroundColor?: string; dimmed?: boolean }): void {
+	updateWindowControls(options: { height?: number; backgroundColor?: string; foregroundColor?: string }): void {
 		const win = this.win;
 		if (!win) {
 			return;
@@ -421,25 +417,9 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 
 		// Windows/Linux: update window controls via setTitleBarOverlay()
 		if (!isMacintosh && useWindowControlsOverlay(this.configurationService)) {
-
-			// Update dimmed state if explicitly provided
-			if (options.dimmed !== undefined) {
-				this.windowControlsDimmed = options.dimmed;
-			}
-
-			const backgroundColor = options.backgroundColor ?? this.lastWindowControlColors?.backgroundColor;
-			const foregroundColor = options.foregroundColor ?? this.lastWindowControlColors?.foregroundColor;
-
-			if (options.backgroundColor !== undefined || options.foregroundColor !== undefined) {
-				this.lastWindowControlColors = { backgroundColor, foregroundColor };
-			}
-
-			const effectiveBackgroundColor = this.windowControlsDimmed && backgroundColor ? this.dimColor(backgroundColor) : backgroundColor;
-			const effectiveForegroundColor = this.windowControlsDimmed && foregroundColor ? this.dimColor(foregroundColor) : foregroundColor;
-
 			win.setTitleBarOverlay({
-				color: effectiveBackgroundColor?.trim() === '' ? undefined : effectiveBackgroundColor,
-				symbolColor: effectiveForegroundColor?.trim() === '' ? undefined : effectiveForegroundColor,
+				color: options.backgroundColor?.trim() === '' ? undefined : options.backgroundColor,
+				symbolColor: options.foregroundColor?.trim() === '' ? undefined : options.foregroundColor,
 				height: options.height ? options.height - 1 : undefined // account for window border
 			});
 		}
@@ -457,24 +437,6 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 				win.setWindowButtonPosition({ x: offset + 1, y: offset });
 			}
 		}
-	}
-
-	private dimColor(color: string): string {
-
-		// Blend a CSS color with black at 30% opacity to match the
-		// dimming overlay of `rgba(0, 0, 0, 0.3)` used by modals.
-
-		const parsed = Color.Format.CSS.parse(color);
-		if (!parsed) {
-			return color;
-		}
-
-		const dimFactor = 0.7; // 1 - 0.3 opacity of black overlay
-		const r = Math.round(parsed.rgba.r * dimFactor);
-		const g = Math.round(parsed.rgba.g * dimFactor);
-		const b = Math.round(parsed.rgba.b * dimFactor);
-
-		return `rgb(${r}, ${g}, ${b})`;
 	}
 
 	//#endregion
@@ -1204,8 +1166,6 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		let windowUrl: string;
 		if (process.env.VSCODE_DEV && process.env.VSCODE_DEV_SERVER_URL) {
 			windowUrl = process.env.VSCODE_DEV_SERVER_URL; // support URL override for development
-		} else if (configuration.isSessionsWindow) {
-			windowUrl = FileAccess.asBrowserUri(`vs/sessions/electron-browser/sessions${this.environmentMainService.isBuilt ? '' : '-dev'}.html`).toString(true);
 		} else {
 			windowUrl = FileAccess.asBrowserUri(`vs/code/electron-browser/workbench/workbench${this.environmentMainService.isBuilt ? '' : '-dev'}.html`).toString(true);
 		}

@@ -24,18 +24,12 @@ import { InlineEditsGutterIndicator, InlineEditsGutterIndicatorData, InlineSugge
 import { InlineEditTabAction } from '../../inlineEditsViewInterface.js';
 import { classNames, maxContentWidthInRange } from '../../utils/utils.js';
 import { JumpToView } from '../jumpToView.js';
-import { TextModelValueReference } from '../../../../model/textModelValueReference.js';
 
 export interface ILongDistancePreviewProps {
 	nextCursorPosition: Position | null; // assert: nextCursorPosition !== null  xor  diff.length > 0
 	diff: DetailedLineRangeMapping[];
 	model: SimpleInlineSuggestModel;
 	inlineSuggestInfo: InlineSuggestionGutterMenuData;
-	/**
-	 * The URI of the file the edit targets.
-	 * When undefined (or same as the editor's model URI), the edit targets the current file.
-	 */
-	target: TextModelValueReference;
 }
 
 export class LongDistancePreviewEditor extends Disposable {
@@ -64,7 +58,7 @@ export class LongDistancePreviewEditor extends Disposable {
 
 			if (tm) {
 				// Avoid transitions from tm -> null -> tm, where tm -> tm would be a no-op.
-				this.previewEditor.setModel(tm.dangerouslyGetUnderlyingModel());
+				this.previewEditor.setModel(tm);
 			}
 		}));
 
@@ -135,12 +129,7 @@ export class LongDistancePreviewEditor extends Disposable {
 		this.updatePreviewEditorEffect.recomputeInitiallyAndOnChange(this._store);
 	}
 
-	private readonly _state = derived<{
-		mode: 'original' | 'modified';
-		visibleLineRange: LineRange;
-		textModel: TextModelValueReference | undefined;
-		diff: DetailedLineRangeMapping[];
-	} | undefined>(this, reader => {
+	private readonly _state = derived(this, reader => {
 		const props = this._properties.read(reader);
 		if (!props) {
 			return undefined;
@@ -162,10 +151,7 @@ export class LongDistancePreviewEditor extends Disposable {
 			}
 		}
 
-		const textModel = mode === 'modified'
-			? TextModelValueReference.snapshot(this._previewTextModel)
-			: props.target;
-
+		const textModel = mode === 'original' ? this._parentEditorObs.model.read(reader) : this._previewTextModel;
 		return {
 			mode,
 			visibleLineRange: visibleRange,

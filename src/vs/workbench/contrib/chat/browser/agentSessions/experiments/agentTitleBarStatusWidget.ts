@@ -749,7 +749,7 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 		// Create dropdown action (empty label prevents default tooltip - we have our own hover)
 		const dropdownAction = toAction({
 			id: 'agentStatus.sparkle.dropdown',
-			label: localize('agentStatus.sparkle.dropdown', "More Actions"),
+			label: '',
 			run() { }
 		});
 

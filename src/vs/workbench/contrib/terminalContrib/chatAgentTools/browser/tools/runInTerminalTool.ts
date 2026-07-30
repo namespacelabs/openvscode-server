@@ -305,7 +305,7 @@ const telemetryIgnoredSequences = [
 	'\x1b[O', // Focus out
 ];
 
-const altBufferMessage = '\n' + localize('runInTerminalTool.altBufferMessage', "The command opened the alternate buffer.");
+const altBufferMessage = localize('runInTerminalTool.altBufferMessage', "The command opened the alternate buffer.");
 
 
 export class RunInTerminalTool extends Disposable implements IToolImpl {
@@ -429,7 +429,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 	async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
 		const args = context.parameters as IRunInTerminalInputParams;
 
-		const chatSessionResource = context.chatSessionResource;
+		const chatSessionResource = context.chatSessionResource ?? (context.chatSessionId ? LocalChatSessionUri.forSession(context.chatSessionId) : undefined);
 		let instance: ITerminalInstance | undefined;
 		if (chatSessionResource) {
 			const toolTerminal = this._sessionTerminalAssociations.get(chatSessionResource);
@@ -658,10 +658,6 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		if (!toolSpecificData) {
 			throw new Error('toolSpecificData must be provided for this tool');
 		}
-		if (!invocation.context) {
-			throw new Error('Invocation context must be provided for this tool');
-		}
-
 		const commandId = toolSpecificData.terminalCommandId;
 		if (toolSpecificData.alternativeRecommendation) {
 			return {
@@ -676,7 +672,8 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		this._logService.debug(`RunInTerminalTool: Invoking with options ${JSON.stringify(args)}`);
 		let toolResultMessage: string | IMarkdownString | undefined;
 
-		const chatSessionResource = invocation.context.sessionResource;
+		const chatSessionResource = invocation.context?.sessionResource ?? LocalChatSessionUri.forSession(invocation.context?.sessionId ?? 'no-chat-session');
+		const chatSessionId = chatSessionResourceToId(chatSessionResource);
 		const command = toolSpecificData.commandLine.userEdited ?? toolSpecificData.commandLine.toolEdited ?? toolSpecificData.commandLine.original;
 		const didUserEditCommand = (
 			toolSpecificData.commandLine.userEdited !== undefined &&
@@ -702,7 +699,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		const store = new DisposableStore();
 
 		// Unified terminal initialization
-		this._logService.debug(`RunInTerminalTool: Creating ${args.isBackground ? 'background' : 'foreground'} terminal. termId=${termId}, chatSessionResource=${chatSessionResource}`);
+		this._logService.debug(`RunInTerminalTool: Creating ${args.isBackground ? 'background' : 'foreground'} terminal. termId=${termId}, chatSessionId=${chatSessionId}`);
 		const toolTerminal = await this._initTerminal(chatSessionResource, termId, terminalToolSessionId, args.isBackground, token);
 
 		this._handleTerminalVisibility(toolTerminal, chatSessionResource);
@@ -778,7 +775,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			// Create unified ActiveTerminalExecution (creates and owns the strategy)
 			const execution = this._instantiationService.createInstance(
 				ActiveTerminalExecution,
-				chatSessionResource,
+				chatSessionId,
 				termId,
 				toolTerminal,
 				commandDetection!,
@@ -799,7 +796,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 						OutputMonitor,
 						{
 							instance: toolTerminal.instance,
-							sessionResource: chatSessionResource,
+							sessionId: invocation.context?.sessionId,
 							getOutput: (marker?: IXtermMarker) => execution.getOutput(marker ?? startMarker)
 						},
 						undefined,
@@ -935,15 +932,6 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 				// Capture output snapshot before disposing on cancellation
 				if (e instanceof CancellationError) {
 					await this._commandArtifactCollector.capture(toolSpecificData, toolTerminal.instance, commandId);
-					// Mark the command as cancelled if it hasn't finished yet
-					// This ensures the decoration shows a failure icon instead of running
-					const state = toolSpecificData.terminalCommandState ?? {};
-					if (state.exitCode === undefined) {
-						state.exitCode = -1;
-						state.timestamp = state.timestamp ?? timingStart;
-						state.duration = state.duration ?? Math.max(0, Date.now() - state.timestamp);
-					}
-					toolSpecificData.terminalCommandState = state;
 				}
 				// Clean up the execution on error
 				RunInTerminalTool._activeExecutions.get(termId)?.dispose();
@@ -1232,7 +1220,7 @@ class ActiveTerminalExecution extends Disposable implements IActiveTerminalExecu
 	}
 
 	constructor(
-		readonly sessionResource: URI,
+		readonly sessionId: string,
 		readonly termId: string,
 		toolTerminal: IToolTerminal,
 		commandDetection: ICommandDetectionCapability,

@@ -1,6 +1,6 @@
 .vscode/**
 src/**
 out/**
-tsconfig*.json
-esbuild*.mts
+tsconfig.json
+*.webpack.config.js
 package-lock.json

@@ -8,7 +8,6 @@ import { IModelDecorationOptions, IModelDecorationsChangeAccessor, IModelDeltaDe
 import { FoldingRegion, FoldingRegions, ILineRange, FoldRange, FoldSource } from './foldingRanges.js';
 import { hash } from '../../../../base/common/hash.js';
 import { SelectedLines } from './folding.js';
-import { IDisposable } from '../../../../base/common/lifecycle.js';
 
 export interface IDecorationProvider {
 	getDecorationOption(isCollapsed: boolean, isHidden: boolean, isManual: boolean): IModelDecorationOptions;
@@ -29,7 +28,7 @@ interface ILineMemento extends ILineRange {
 
 export type CollapseMemento = ILineMemento[];
 
-export class FoldingModel implements IDisposable {
+export class FoldingModel {
 	private readonly _textModel: ITextModel;
 	private readonly _decorationProvider: IDecorationProvider;
 
@@ -230,7 +229,6 @@ export class FoldingModel implements IDisposable {
 
 	public dispose() {
 		this._decorationProvider.removeDecorations(this._editorDecorationIds);
-		this._updateEventEmitter.dispose();
 	}
 
 	getAllRegionsAtLine(lineNumber: number, filter?: (r: FoldingRegion, level: number) => boolean): FoldingRegion[] {

@@ -14,7 +14,6 @@ import { IExtensionService } from '../../../../services/extensions/common/extens
 import { InstantiationType, registerSingleton } from '../../../../../platform/instantiation/common/extensions.js';
 import { Disposable, DisposableMap, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { basename } from '../../../../../base/common/resources.js';
 
 export const IChatContextService = createDecorator<IChatContextService>('chatContextService');
 
@@ -108,13 +107,11 @@ export class ChatContextService extends Disposable {
 				if (!item.value) {
 					continue;
 				}
-				// Derive label from resourceUri if label is not set
-				const derivedLabel = item.label ?? (item.resourceUri ? basename(item.resourceUri) : 'Unknown');
 				items.push({
 					value: item.value,
-					name: derivedLabel,
+					name: item.label,
 					modelDescription: item.modelDescription,
-					id: derivedLabel,
+					id: item.label,
 					kind: 'workspace'
 				});
 			}
@@ -144,15 +141,11 @@ export class ChatContextService extends Disposable {
 		if (!context) {
 			return;
 		}
-		// Derive label from resourceUri if label is not set
-		const effectiveResourceUri = context.resourceUri ?? uri;
-		const derivedLabel = context.label ?? basename(effectiveResourceUri);
 		const contextValue: StringChatContextValue = {
 			value: undefined,
-			name: derivedLabel,
+			name: context.label,
 			icon: context.icon,
 			uri: uri,
-			resourceUri: context.resourceUri,
 			modelDescription: context.modelDescription,
 			tooltip: context.tooltip,
 			commandId: context.command?.id,
@@ -209,29 +202,23 @@ export class ChatContextService extends Disposable {
 
 			return {
 				picks: picks().then(items => {
-					return items.map(item => {
-						// Derive label from resourceUri if label is not set
-						const derivedLabel = item.label ?? (item.resourceUri ? basename(item.resourceUri) : 'Unknown');
-						return {
-							label: derivedLabel,
-							iconClass: item.icon ? ThemeIcon.asClassName(item.icon) : undefined,
-							asAttachment: async (): Promise<IGenericChatRequestVariableEntry> => {
-								let contextValue = item;
-								if ((contextValue.value === undefined) && providerEntry?.explicitProvider) {
-									contextValue = await providerEntry.explicitProvider.resolveChatContext(item, CancellationToken.None);
-								}
-								// Derive label from resourceUri if label is not set
-								const resolvedLabel = contextValue.label ?? (contextValue.resourceUri ? basename(contextValue.resourceUri) : 'Unknown');
-								return {
-									kind: 'generic',
-									id: resolvedLabel,
-									name: resolvedLabel,
-									icon: contextValue.icon,
-									value: contextValue.value,
-								};
+					return items.map(item => ({
+						label: item.label,
+						iconClass: ThemeIcon.asClassName(item.icon),
+						asAttachment: async (): Promise<IGenericChatRequestVariableEntry> => {
+							let contextValue = item;
+							if ((contextValue.value === undefined) && providerEntry?.explicitProvider) {
+								contextValue = await providerEntry.explicitProvider.resolveChatContext(item, CancellationToken.None);
 							}
-						};
-					});
+							return {
+								kind: 'generic',
+								id: contextValue.label,
+								name: contextValue.label,
+								icon: contextValue.icon,
+								value: contextValue.value,
+							};
+						}
+					}));
 				}),
 				placeholder: title
 			};

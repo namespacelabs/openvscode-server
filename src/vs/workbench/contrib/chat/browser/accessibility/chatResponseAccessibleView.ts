@@ -13,11 +13,10 @@ import { localize } from '../../../../../nls.js';
 import { AccessibleViewProviderId, AccessibleViewType, IAccessibleViewContentProvider } from '../../../../../platform/accessibility/browser/accessibleView.js';
 import { IAccessibleViewImplementation } from '../../../../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
 import { AccessibilityVerbositySettingId } from '../../../accessibility/browser/accessibilityConfiguration.js';
 import { migrateLegacyTerminalToolSpecificData } from '../../common/chat.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
-import { IChatExtensionsContent, IChatPullRequestContent, IChatSimpleToolInvocationData, IChatSubagentToolInvocationData, IChatTerminalToolInvocationData, IChatTodoListContent, IChatToolInputInvocationData, IChatToolInvocation, IChatToolResourcesInvocationData, ILegacyChatTerminalToolInvocationData, IToolResultOutputDetailsSerialized, isLegacyChatTerminalToolInvocationData } from '../../common/chatService/chatService.js';
+import { IChatExtensionsContent, IChatPullRequestContent, IChatSubagentToolInvocationData, IChatTerminalToolInvocationData, IChatTodoListContent, IChatToolInputInvocationData, IChatToolInvocation, ILegacyChatTerminalToolInvocationData, IToolResultOutputDetailsSerialized, isLegacyChatTerminalToolInvocationData } from '../../common/chatService/chatService.js';
 import { isResponseVM } from '../../common/model/chatViewModel.js';
 import { IToolResultInputOutputDetails, IToolResultOutputDetails, isToolResultInputOutputDetails, isToolResultOutputDetails, toolContentToA11yString } from '../../common/tools/languageModelToolsService.js';
 import { ChatTreeItem, IChatWidget, IChatWidgetService } from '../chat.js';
@@ -30,7 +29,6 @@ export class ChatResponseAccessibleView implements IAccessibleViewImplementation
 	readonly when = ChatContextKeys.inChatSession;
 	getProvider(accessor: ServicesAccessor) {
 		const widgetService = accessor.get(IChatWidgetService);
-		const storageService = accessor.get(IStorageService);
 		const widget = widgetService.lastFocusedWidget;
 		if (!widget) {
 			return;
@@ -41,33 +39,17 @@ export class ChatResponseAccessibleView implements IAccessibleViewImplementation
 		}
 
 		const verifiedWidget: IChatWidget = widget;
-		let focusedItem = verifiedWidget.getFocus();
-		if (!focusedItem || !isResponseVM(focusedItem)) {
-			const responseItems = verifiedWidget.viewModel?.getItems().filter(isResponseVM);
-			const lastResponse = responseItems?.at(-1);
-			if (lastResponse) {
-				focusedItem = lastResponse;
-				verifiedWidget.focus(lastResponse);
-			}
-		}
-
-		if (!focusedItem || !isResponseVM(focusedItem)) {
+		const focusedItem = verifiedWidget.getFocus();
+		if (!focusedItem) {
 			return;
 		}
 
-		return new ChatResponseAccessibleProvider(verifiedWidget, focusedItem, chatInputFocused, storageService);
+		return new ChatResponseAccessibleProvider(verifiedWidget, focusedItem, chatInputFocused);
 	}
 }
 
-type ToolSpecificData = IChatTerminalToolInvocationData | ILegacyChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatPullRequestContent | IChatTodoListContent | IChatSubagentToolInvocationData | IChatSimpleToolInvocationData | IChatToolResourcesInvocationData;
+type ToolSpecificData = IChatTerminalToolInvocationData | ILegacyChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatPullRequestContent | IChatTodoListContent | IChatSubagentToolInvocationData;
 type ResultDetails = Array<URI | Location> | IToolResultInputOutputDetails | IToolResultOutputDetails | IToolResultOutputDetailsSerialized;
-
-export const CHAT_ACCESSIBLE_VIEW_INCLUDE_THINKING_STORAGE_KEY = 'chat.accessibleView.includeThinking';
-const CHAT_ACCESSIBLE_VIEW_INCLUDE_THINKING_DEFAULT = true;
-
-export function isThinkingContentIncludedInAccessibleView(storageService: IStorageService): boolean {
-	return storageService.getBoolean(CHAT_ACCESSIBLE_VIEW_INCLUDE_THINKING_STORAGE_KEY, StorageScope.PROFILE, CHAT_ACCESSIBLE_VIEW_INCLUDE_THINKING_DEFAULT);
-}
 
 function isOutputDetailsSerialized(obj: unknown): obj is IToolResultOutputDetailsSerialized {
 	return typeof obj === 'object' && obj !== null && 'output' in obj &&
@@ -120,27 +102,6 @@ export function getToolSpecificDataDescription(toolSpecificData: ToolSpecificDat
 			return typeof toolSpecificData.rawInput === 'string'
 				? toolSpecificData.rawInput
 				: JSON.stringify(toolSpecificData.rawInput);
-		case 'resources': {
-			const values = toolSpecificData.values;
-			if (values.length === 0) {
-				return '';
-			}
-			const paths = values.map(v => {
-				if ('uri' in v && 'range' in v) {
-					// Location
-					return `${v.uri.fsPath || v.uri.path}:${v.range.startLineNumber}`;
-				} else {
-					// URI
-					return v.fsPath || v.path;
-				}
-			}).join(', ');
-			return localize('resourcesList', "Resources: {0}", paths);
-		}
-		case 'simpleToolInvocation': {
-			const inputText = toolSpecificData.input;
-			const outputText = toolSpecificData.output;
-			return localize('simpleToolInvocation', "Input: {0}, Output: {1}", inputText, outputText);
-		}
 		default:
 			return '';
 	}
@@ -221,19 +182,14 @@ export function getToolInvocationA11yDescription(
 class ChatResponseAccessibleProvider extends Disposable implements IAccessibleViewContentProvider {
 	private _focusedItem!: ChatTreeItem;
 	private readonly _focusedItemDisposables = this._register(new DisposableStore());
-	private readonly _storageDisposables = this._register(new DisposableStore());
 	private readonly _onDidChangeContent = this._register(new Emitter<void>());
 	readonly onDidChangeContent: Event<void> = this._onDidChangeContent.event;
 	constructor(
 		private readonly _widget: IChatWidget,
 		item: ChatTreeItem,
-		private readonly _wasOpenedFromInput: boolean,
-		private readonly _storageService: IStorageService
+		private readonly _wasOpenedFromInput: boolean
 	) {
 		super();
-		this._storageDisposables.add(this._storageService.onDidChangeValue(StorageScope.PROFILE, CHAT_ACCESSIBLE_VIEW_INCLUDE_THINKING_STORAGE_KEY, this._storageDisposables)(() => {
-			this._onDidChangeContent.fire();
-		}));
 		this._setFocusedItem(item);
 	}
 
@@ -272,9 +228,6 @@ class ChatResponseAccessibleProvider extends Disposable implements IAccessibleVi
 		for (const part of item.response.value) {
 			switch (part.kind) {
 				case 'thinking': {
-					if (!this._shouldIncludeThinkingContent()) {
-						break;
-					}
 					const thinkingValue = Array.isArray(part.value) ? part.value.join('') : (part.value || '');
 					const trimmed = thinkingValue.trim();
 					if (trimmed) {
@@ -375,10 +328,6 @@ class ChatResponseAccessibleProvider extends Disposable implements IAccessibleVi
 			normalized.push(line);
 		}
 		return normalized.join('\n');
-	}
-
-	private _shouldIncludeThinkingContent(): boolean {
-		return isThinkingContentIncludedInAccessibleView(this._storageService);
 	}
 
 	onClose(): void {

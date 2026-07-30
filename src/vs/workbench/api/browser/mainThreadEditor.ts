@@ -205,7 +205,6 @@ export class MainThreadTextEditor {
 
 	public dispose(): void {
 		this._modelListeners.dispose();
-		this._onPropertiesChanged.dispose();
 		this._codeEditor = null;
 		this._codeEditorListeners.dispose();
 	}

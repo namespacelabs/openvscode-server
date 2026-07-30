@@ -66,7 +66,7 @@ suite('PromptHoverProvider', () => {
 			lookupLanguageModelByQualifiedName(qualifiedName: string) {
 				for (const metadata of testModels) {
 					if (ILanguageModelChatMetadata.matchesQualifiedName(qualifiedName, metadata)) {
-						return { metadata, identifier: metadata.id };
+						return metadata;
 					}
 				}
 				return undefined;
@@ -79,7 +79,7 @@ suite('PromptHoverProvider', () => {
 			agentInstructions: { content: 'Beast mode instructions', toolReferences: [] },
 			source: { storage: PromptsStorage.local },
 			target: Target.Undefined,
-			visibility: { userInvocable: true, agentInvocable: true }
+			visibility: { userInvokable: true, agentInvokable: true }
 		});
 		instaService.stub(IChatModeService, new MockChatModeService({ builtin: [ChatMode.Agent, ChatMode.Ask, ChatMode.Edit], custom: [customChatMode] }));
 
@@ -323,7 +323,7 @@ suite('PromptHoverProvider', () => {
 				'---',
 			].join('\n');
 			const hover = await getHover(content, 4, 1, PromptsType.agent);
-			assert.strictEqual(hover, 'Controls visibility of the agent.\n\nDeprecated: Use `user-invocable` and `disable-model-invocation` instead.');
+			assert.strictEqual(hover, 'Controls visibility of the agent.\n\nDeprecated: Use `user-invokable` and `disable-model-invocation` instead.');
 		});
 
 		test('hover on agents attribute shows description', async () => {
@@ -338,12 +338,12 @@ suite('PromptHoverProvider', () => {
 			assert.strictEqual(hover, 'One or more agents that this agent can use as subagents. Use \'*\' to specify all available agents.');
 		});
 
-		test('hover on user-invocable attribute shows description', async () => {
+		test('hover on user-invokable attribute shows description', async () => {
 			const content = [
 				'---',
 				'name: "Test Agent"',
 				'description: "Test agent"',
-				'user-invocable: true',
+				'user-invokable: true',
 				'---',
 			].join('\n');
 			const hover = await getHover(content, 4, 1, PromptsType.agent);

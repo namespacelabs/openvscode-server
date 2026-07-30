@@ -7,14 +7,12 @@ import type { Task } from '../../../../../tasks/common/taskService.js';
 import type { ITerminalInstance } from '../../../../../terminal/browser/terminal.js';
 import type { ILinkLocation } from '../../taskHelpers.js';
 import type { IMarker as XtermMarker } from '@xterm/xterm';
-import type { URI } from '../../../../../../../base/common/uri.js';
 
 export interface IConfirmationPrompt {
 	prompt: string;
 	options: string[];
 	descriptions?: string[];
 	detectedRequestForFreeFormInput: boolean;
-	suggestedInput?: string;
 }
 
 export interface IExecution {
@@ -23,7 +21,7 @@ export interface IExecution {
 	task?: Task | Pick<Task, 'configurationProperties'>;
 	dependencyTasks?: Task[];
 	instance: Pick<ITerminalInstance, 'sendText' | 'instanceId' | 'onDidInputData' | 'onDisposed' | 'onData' | 'focus' | 'registerMarker'>;
-	sessionResource: URI | undefined;
+	sessionId: string | undefined;
 }
 
 export interface IPollingResult {

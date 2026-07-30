@@ -5,10 +5,9 @@
 
 import { Color } from '../../../../base/common/color.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IColorPresentation } from '../../../common/languages.js';
 
-export class ColorPickerModel extends Disposable {
+export class ColorPickerModel {
 
 	readonly originalColor: Color;
 	private _color: Color;
@@ -42,17 +41,16 @@ export class ColorPickerModel extends Disposable {
 		this._onDidChangePresentation.fire(this.presentation);
 	}
 
-	private readonly _onColorFlushed = this._register(new Emitter<Color>());
+	private readonly _onColorFlushed = new Emitter<Color>();
 	readonly onColorFlushed: Event<Color> = this._onColorFlushed.event;
 
-	private readonly _onDidChangeColor = this._register(new Emitter<Color>());
+	private readonly _onDidChangeColor = new Emitter<Color>();
 	readonly onDidChangeColor: Event<Color> = this._onDidChangeColor.event;
 
-	private readonly _onDidChangePresentation = this._register(new Emitter<IColorPresentation>());
+	private readonly _onDidChangePresentation = new Emitter<IColorPresentation>();
 	readonly onDidChangePresentation: Event<IColorPresentation> = this._onDidChangePresentation.event;
 
 	constructor(color: Color, availableColorPresentations: IColorPresentation[], private presentationIndex: number) {
-		super();
 		this.originalColor = color;
 		this._color = color;
 		this._colorPresentations = availableColorPresentations;

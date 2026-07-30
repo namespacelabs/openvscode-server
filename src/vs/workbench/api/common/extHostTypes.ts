@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* eslint-disable local/code-no-native-private */
+
 import type * as vscode from 'vscode';
 import { asArray } from '../../../base/common/arrays.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
@@ -12,7 +14,7 @@ import { MarshalledId } from '../../../base/common/marshallingIds.js';
 import { Mimes } from '../../../base/common/mime.js';
 import { nextCharLength } from '../../../base/common/strings.js';
 import { isNumber, isObject, isString, isStringArray } from '../../../base/common/types.js';
-import { isUriComponents, URI } from '../../../base/common/uri.js';
+import { URI } from '../../../base/common/uri.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { TextEditorSelectionSource } from '../../../platform/editor/common/editor.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../platform/extensions/common/extensions.js';
@@ -3174,19 +3176,6 @@ export class McpToolInvocationContentData {
 	}
 }
 
-export class ChatSubagentToolInvocationData {
-	description?: string;
-	agentName?: string;
-	prompt?: string;
-	result?: string;
-	constructor(description?: string, agentName?: string, prompt?: string, result?: string) {
-		this.description = description;
-		this.agentName = agentName;
-		this.prompt = prompt;
-		this.result = result;
-	}
-}
-
 export class ChatResponseExternalEditPart {
 	applied: Thenable<string>;
 	didGetApplied!: (value: string) => void;
@@ -3323,26 +3312,13 @@ export class ChatResponseExtensionsPart {
 }
 
 export class ChatResponsePullRequestPart {
-	public readonly uri?: vscode.Uri;
-	public readonly command: vscode.Command;
-
 	constructor(
-		uriOrCommand: vscode.Uri | vscode.Command,
+		public readonly uri: vscode.Uri,
 		public readonly title: string,
 		public readonly description: string,
 		public readonly author: string,
 		public readonly linkTag: string
 	) {
-		if (isUriComponents(uriOrCommand)) {
-			this.uri = uriOrCommand as vscode.Uri;
-			this.command = {
-				title: 'Open Pull Request',
-				command: 'vscode.open',
-				arguments: [uriOrCommand]
-			};
-		} else {
-			this.command = uriOrCommand;
-		}
 	}
 
 	toJSON() {
@@ -3479,16 +3455,10 @@ export interface ChatTerminalToolInvocationData2 {
 	language: string;
 }
 
-export enum ChatTodoStatus {
-	NotStarted = 1,
-	InProgress = 2,
-	Completed = 3
-}
-
 export class ChatToolInvocationPart {
 	toolName: string;
 	toolCallId: string;
-	errorMessage?: string;
+	isError?: boolean;
 	invocationMessage?: string | vscode.MarkdownString;
 	originMessage?: string | vscode.MarkdownString;
 	pastTenseMessage?: string | vscode.MarkdownString;
@@ -3501,10 +3471,10 @@ export class ChatToolInvocationPart {
 
 	constructor(toolName: string,
 		toolCallId: string,
-		errorMessage?: string) {
+		isError?: boolean) {
 		this.toolName = toolName;
 		this.toolCallId = toolCallId;
-		this.errorMessage = errorMessage;
+		this.isError = isError;
 	}
 }
 
@@ -3516,8 +3486,7 @@ export class ChatRequestTurn implements vscode.ChatRequestTurn2 {
 		readonly participant: string,
 		readonly toolReferences: vscode.ChatLanguageModelToolReference[],
 		readonly editedFileEvents?: vscode.ChatRequestEditedFileEvent[],
-		readonly id?: string,
-		readonly modelId?: string,
+		readonly id?: string
 	) { }
 }
 
@@ -3551,8 +3520,7 @@ export enum ChatLocation {
 export enum ChatSessionStatus {
 	Failed = 0,
 	Completed = 1,
-	InProgress = 2,
-	NeedsInput = 3
+	InProgress = 2
 }
 
 export class ChatSessionChangedFile {

@@ -39,16 +39,16 @@ export namespace Extensions {
 export const enum ViewContainerLocation {
 	Sidebar,
 	Panel,
-	AuxiliaryBar,
-	ChatBar,
+	AuxiliaryBar
 }
+
+export const ViewContainerLocations = [ViewContainerLocation.Sidebar, ViewContainerLocation.Panel, ViewContainerLocation.AuxiliaryBar];
 
 export function ViewContainerLocationToString(viewContainerLocation: ViewContainerLocation) {
 	switch (viewContainerLocation) {
 		case ViewContainerLocation.Sidebar: return 'sidebar';
 		case ViewContainerLocation.Panel: return 'panel';
 		case ViewContainerLocation.AuxiliaryBar: return 'auxiliarybar';
-		case ViewContainerLocation.ChatBar: return 'chatbar';
 	}
 }
 
@@ -59,24 +59,6 @@ type OpenCommandActionDescriptor = {
 	readonly order?: number;
 	readonly keybindings?: IKeybindings & { when?: ContextKeyExpression };
 };
-
-/**
- * Specifies in which window a view or view container should be visible.
- */
-export const enum WindowVisibility {
-	/**
-	 * Visible only in the editor window
-	 */
-	Editor = 1,
-	/**
-	 * Visible only in sessions window
-	 */
-	Sessions = 2,
-	/**
-	 * Visible in both editor and sessions windows
-	 */
-	Both = 3,
-}
 
 /**
  * View Container Contexts
@@ -139,12 +121,6 @@ export interface IViewContainerDescriptor {
 
 	readonly rejectAddedViews?: boolean;
 
-	/**
-	 * Specifies in which window this view container should be visible.
-	 * Defaults to WindowVisibility.Editor
-	 */
-	readonly windowVisibility?: WindowVisibility;
-
 	requestedIndex?: number;
 }
 
@@ -199,9 +175,9 @@ export interface IViewContainersRegistry {
 	getViewContainerLocation(container: ViewContainer): ViewContainerLocation;
 
 	/**
-	 * Return the default view containers from the given location
+	 * Return the default view container from the given location
 	 */
-	getDefaultViewContainers(location: ViewContainerLocation): ViewContainer[];
+	getDefaultViewContainer(location: ViewContainerLocation): ViewContainer | undefined;
 }
 
 interface ViewOrderDelegate {
@@ -274,8 +250,8 @@ class ViewContainersRegistryImpl extends Disposable implements IViewContainersRe
 		return [...this.viewContainers.keys()].filter(location => this.getViewContainers(location).filter(viewContainer => viewContainer?.id === container.id).length > 0)[0];
 	}
 
-	getDefaultViewContainers(location: ViewContainerLocation): ViewContainer[] {
-		return this.defaultViewContainers.filter(viewContainer => this.getViewContainerLocation(viewContainer) === location);
+	getDefaultViewContainer(location: ViewContainerLocation): ViewContainer | undefined {
+		return this.defaultViewContainers.find(viewContainer => this.getViewContainerLocation(viewContainer) === location);
 	}
 }
 
@@ -325,12 +301,6 @@ export interface IViewDescriptor {
 	readonly openCommandActionDescriptor?: OpenCommandActionDescriptor;
 
 	readonly accessibilityHelpContent?: MarkdownString;
-
-	/**
-	 * Specifies in which window this view should be visible.
-	 * Defaults to WindowVisibility.Workbench (main workbench only).
-	 */
-	readonly windowVisibility?: WindowVisibility;
 }
 
 export interface ICustomViewDescriptor extends IViewDescriptor {
@@ -638,8 +608,6 @@ export interface IViewDescriptorService {
 	getViewContainerByViewId(id: string): ViewContainer | null;
 	getDefaultContainerById(id: string): ViewContainer | null;
 	getViewLocationById(id: string): ViewContainerLocation | null;
-
-	canMoveViews(): boolean;
 
 	readonly onDidChangeContainer: Event<{ views: IViewDescriptor[]; from: ViewContainer; to: ViewContainer }>;
 	moveViewsToContainer(views: IViewDescriptor[], viewContainer: ViewContainer, visibilityState?: ViewVisibilityState, reason?: string): void;

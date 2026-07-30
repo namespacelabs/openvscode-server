@@ -3,12 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as playwright from 'playwright';
 import { getDevElectronPath, Quality, ConsoleLogger, FileLogger, Logger, MultiLogger, getBuildElectronPath, getBuildVersion, measureAndLog, Application } from '../../automation';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as vscodetest from '@vscode/test-electron';
-import { createApp, retry, parseVersion } from './utils';
+import { createApp, retry } from './utils';
 import { opts } from './options';
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -59,6 +60,11 @@ function fail(errorMessage): void {
 
 let quality: Quality;
 let version: string | undefined;
+
+function parseVersion(version: string): { major: number; minor: number; patch: number } {
+	const [, major, minor, patch] = /^(\d+)\.(\d+)\.(\d+)/.exec(version)!;
+	return { major: parseInt(major), minor: parseInt(minor), patch: parseInt(patch) };
+}
 
 function parseQuality(): Quality {
 	if (process.env.VSCODE_DEV === '1') {
@@ -196,7 +202,7 @@ async function ensureStableCode(): Promise<void> {
 		}));
 
 		if (process.platform === 'darwin') {
-			// Visual Studio Code.app/Contents/MacOS/Code
+			// Visual Studio Code.app/Contents/MacOS/Electron
 			stableCodePath = path.dirname(path.dirname(path.dirname(stableCodeExecutable)));
 		} else {
 			// VSCode/Code.exe (Windows) | VSCode/code (Linux)
@@ -239,6 +245,10 @@ export async function getApplication({ recordVideo, workspacePath }: { recordVid
 
 	await setup();
 	const application = createApp({
+		// Pass the alpha version of Playwright down... This is a hack since Playwright MCP
+		// doesn't play nice with Playwright Test: https://github.com/microsoft/playwright-mcp/issues/917
+		// eslint-disable-next-line local/code-no-any-casts
+		playwright: playwright as any,
 		quality,
 		version: parseVersion(version ?? '0.0.0'),
 		codePath: opts.build,

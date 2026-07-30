@@ -65,8 +65,7 @@ export const enum AccessibilityVerbositySettingId {
 	DiffEditorActive = 'accessibility.verbosity.diffEditorActive',
 	Debug = 'accessibility.verbosity.debug',
 	Walkthrough = 'accessibility.verbosity.walkthrough',
-	SourceControl = 'accessibility.verbosity.sourceControl',
-	Find = 'accessibility.verbosity.find'
+	SourceControl = 'accessibility.verbosity.sourceControl'
 }
 
 const baseVerbosityProperty: IConfigurationPropertySchema = {
@@ -198,10 +197,6 @@ const configuration: IConfigurationNode = {
 		},
 		[AccessibilityVerbositySettingId.SourceControl]: {
 			description: localize('verbosity.scm', 'Provide information about how to access the source control accessibility help menu when the input is focused.'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.Find]: {
-			description: localize('verbosity.find', 'Provide information about how to access the find accessibility help menu when the find input is focused.'),
 			...baseVerbosityProperty
 		},
 		'accessibility.signalOptions.volume': {

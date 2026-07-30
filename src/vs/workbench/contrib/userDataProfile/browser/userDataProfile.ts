@@ -27,7 +27,6 @@ import { EditorExtensions, IEditorFactoryRegistry } from '../../../common/editor
 import { UserDataProfilesEditor, UserDataProfilesEditorInput, UserDataProfilesEditorInputSerializer } from './userDataProfilesEditor.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
-import { IEditorService, MODAL_GROUP } from '../../../services/editor/common/editorService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IUserDataProfilesEditor } from '../common/userDataProfile.js';
@@ -56,7 +55,7 @@ export class UserDataProfilesWorkbenchContribution extends Disposable implements
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IWorkspaceTagsService private readonly workspaceTagsService: IWorkspaceTagsService,
 		@IContextKeyService contextKeyService: IContextKeyService,
-		@IEditorService private readonly editorService: IEditorService,
+		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@IURLService private readonly urlService: IURLService,
@@ -108,7 +107,7 @@ export class UserDataProfilesWorkbenchContribution extends Disposable implements
 	}
 
 	private async openProfilesEditor(): Promise<IUserDataProfilesEditor | undefined> {
-		const editor = await this.editorService.openEditor(new UserDataProfilesEditorInput(this.instantiationService), undefined, MODAL_GROUP);
+		const editor = await this.editorGroupsService.activeGroup.openEditor(new UserDataProfilesEditorInput(this.instantiationService));
 		return editor as IUserDataProfilesEditor;
 	}
 
@@ -387,9 +386,9 @@ export class UserDataProfilesWorkbenchContribution extends Disposable implements
 				});
 			}
 			run(accessor: ServicesAccessor) {
-				const editorService = accessor.get(IEditorService);
+				const editorGroupsService = accessor.get(IEditorGroupsService);
 				const instantiationService = accessor.get(IInstantiationService);
-				return editorService.openEditor(new UserDataProfilesEditorInput(instantiationService), undefined, MODAL_GROUP);
+				return editorGroupsService.activeGroup.openEditor(new UserDataProfilesEditorInput(instantiationService));
 			}
 		}));
 		disposables.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, {

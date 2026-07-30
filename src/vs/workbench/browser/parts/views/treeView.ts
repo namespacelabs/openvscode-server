@@ -1823,7 +1823,6 @@ class TreeMenus implements IDisposable {
 
 	dispose() {
 		this.contextKeyService = undefined;
-		this._onDidChange.dispose();
 	}
 }
 

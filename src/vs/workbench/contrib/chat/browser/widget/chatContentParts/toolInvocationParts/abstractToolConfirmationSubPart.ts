@@ -27,11 +27,7 @@ export interface IToolConfirmationConfig {
 	subtitle?: string;
 }
 
-export interface IAbstractToolPrimaryAction extends IChatConfirmationButton<(() => void)> {
-	scope?: 'session' | 'workspace' | 'profile';
-}
-
-type AbstractToolPrimaryAction = IAbstractToolPrimaryAction | Separator;
+type AbstractToolPrimaryAction = IChatConfirmationButton<(() => void)> | Separator;
 
 /**
  * Base class for a tool confirmation.
@@ -58,64 +54,29 @@ export abstract class AbstractToolConfirmationSubPart extends BaseChatToolInvoca
 	}
 	protected render(config: IToolConfirmationConfig) {
 		const { keybindingService, languageModelToolsService, toolInvocation } = this;
+		const allowTooltip = keybindingService.appendKeybinding(config.allowLabel, config.allowActionId);
+		const skipTooltip = keybindingService.appendKeybinding(config.skipLabel, config.skipActionId);
 
-		const state = toolInvocation.state.get();
-		const customButtons = state.type === IChatToolInvocation.StateKind.WaitingForConfirmation
-			? state.confirmationMessages?.customButtons
-			: undefined;
 
-		let buttons: IChatConfirmationButton<(() => void)>[];
-
-		if (customButtons && customButtons.length > 0) {
-			buttons = customButtons.map((label, index) => ({
-				label,
-				data: () => {
-					this.confirmWith(toolInvocation, { type: ToolConfirmKind.UserAction, selectedButton: label });
-				},
-				isSecondary: index > 0,
-			}));
-		} else {
-			const allowTooltip = keybindingService.appendKeybinding(config.allowLabel, config.allowActionId);
-			const skipTooltip = keybindingService.appendKeybinding(config.skipLabel, config.skipActionId);
-
-			const additionalActions = this.additionalPrimaryActions();
-
-			// find session scoped action
-			const sessionAction = additionalActions.find(
-				(action): action is IAbstractToolPrimaryAction => 'scope' in action && action.scope === 'session'
-			);
-
-			// regular allow action
-			const allowAction: IAbstractToolPrimaryAction = {
+		const additionalActions = this.additionalPrimaryActions();
+		const buttons: IChatConfirmationButton<(() => void)>[] = [
+			{
 				label: config.allowLabel,
 				tooltip: allowTooltip,
-				data: () => { this.confirmWith(toolInvocation, { type: ToolConfirmKind.UserAction }); },
-			};
-
-			const primaryAction = sessionAction ?? allowAction;
-
-			// rebuild additional list with allow action
-			const moreActions = sessionAction
-				? [allowAction, ...additionalActions.filter(a => a !== sessionAction)]
-				: additionalActions;
-
-			buttons = [
-				{
-					label: primaryAction.label,
-					tooltip: primaryAction.tooltip,
-					data: primaryAction.data,
-					moreActions: moreActions.length > 0 ? moreActions : undefined,
+				data: () => {
+					this.confirmWith(toolInvocation, { type: ToolConfirmKind.UserAction });
 				},
-				{
-					label: localize('skip', "Skip"),
-					tooltip: skipTooltip,
-					data: () => {
-						this.confirmWith(toolInvocation, { type: ToolConfirmKind.Skipped });
-					},
-					isSecondary: true,
-				}
-			];
-		}
+				moreActions: additionalActions.length > 0 ? additionalActions : undefined,
+			},
+			{
+				label: localize('skip', "Skip"),
+				tooltip: skipTooltip,
+				data: () => {
+					this.confirmWith(toolInvocation, { type: ToolConfirmKind.Skipped });
+				},
+				isSecondary: true,
+			}
+		];
 
 		const contentElement = this.createContentElement();
 		const tool = languageModelToolsService.getTool(toolInvocation.toolId);

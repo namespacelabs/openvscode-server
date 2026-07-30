@@ -47,11 +47,11 @@ function _throttle<T>(fn: Function, key: string): Function {
 	return trigger;
 }
 
-function decorate(decorator: (fn: Function, key: string) => Function): MethodDecorator {
-	return (_target: any, key: string | symbol, descriptor: PropertyDescriptor): void => {
-		if (typeof descriptor.value !== 'function') {
+function decorate(decorator: (fn: Function, key: string) => Function): Function {
+	return function (original: any, context: ClassMethodDecoratorContext) {
+		if (context.kind !== 'method') {
 			throw new Error('not supported');
 		}
-		descriptor.value = decorator(descriptor.value, String(key));
+		return decorator(original, context.name.toString());
 	};
 }

@@ -738,7 +738,6 @@ class BranchNode implements ISplitView<ILayoutContext>, IDisposable {
 		}
 
 		this._onDidChange.dispose();
-		this._onDidScroll.dispose();
 		this._onDidSashReset.dispose();
 		this._onDidVisibilityChange.dispose();
 
@@ -934,7 +933,6 @@ class LeafNode implements ISplitView<ILayoutContext>, IDisposable {
 	}
 
 	dispose(): void {
-		this._onDidSetLinkedNode.dispose();
 		this.disposables.dispose();
 	}
 }
@@ -1539,7 +1537,7 @@ export class GridView implements IDisposable {
 		return true;
 	}
 
-	maximizeView(location: GridLocation, excludeViews: readonly IView[] = []) {
+	maximizeView(location: GridLocation) {
 		const [, nodeToMaximize] = this.getNode(location);
 		if (!(nodeToMaximize instanceof LeafNode)) {
 			throw new Error('Location is not a LeafNode');
@@ -1553,13 +1551,11 @@ export class GridView implements IDisposable {
 			this.exitMaximizedView();
 		}
 
-		const excludeViewSet = new Set(excludeViews);
-
 		function hideAllViewsBut(parent: BranchNode, exclude: LeafNode): void {
 			for (let i = 0; i < parent.children.length; i++) {
 				const child = parent.children[i];
 				if (child instanceof LeafNode) {
-					if (child !== exclude && !excludeViewSet.has(child.view)) {
+					if (child !== exclude) {
 						parent.setChildVisible(i, false);
 					}
 				} else {
@@ -1834,7 +1830,6 @@ export class GridView implements IDisposable {
 	}
 
 	dispose(): void {
-		this._onDidChangeViewMaximized.dispose();
 		this.onDidSashResetRelay.dispose();
 		this.root.dispose();
 		this.element.remove();

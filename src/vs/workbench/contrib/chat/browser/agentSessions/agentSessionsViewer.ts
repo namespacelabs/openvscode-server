@@ -41,7 +41,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { renderAsPlaintext } from '../../../../../base/browser/markdownRenderer.js';
 import { MarkdownString, IMarkdownString } from '../../../../../base/common/htmlContent.js';
 import { AgentSessionHoverWidget } from './agentSessionHoverWidget.js';
-import { AgentSessionProviders, getAgentSessionTime } from './agentSessions.js';
+import { AgentSessionProviders } from './agentSessions.js';
 import { AgentSessionsGrouping } from './agentSessionsFilter.js';
 
 export type AgentSessionListItem = IAgentSession | IAgentSessionSection;
@@ -56,9 +56,6 @@ interface IAgentSessionItemTemplate {
 
 	// Column 2 Row 1
 	readonly title: IconLabel;
-	readonly statusContainer: HTMLElement;
-	readonly statusProviderIcon: HTMLElement;
-	readonly statusTime: HTMLElement;
 	readonly titleToolbar: MenuWorkbenchToolBar;
 
 	// Column 2 Row 2
@@ -67,8 +64,11 @@ interface IAgentSessionItemTemplate {
 	readonly diffRemovedSpan: HTMLSpanElement;
 
 	readonly badge: HTMLElement;
-	readonly separator: HTMLElement;
 	readonly description: HTMLElement;
+
+	readonly statusContainer: HTMLElement;
+	readonly statusProviderIcon: HTMLElement;
+	readonly statusTime: HTMLElement;
 
 	readonly contextKeyService: IContextKeyService;
 	readonly elementDisposable: DisposableStore;
@@ -76,7 +76,6 @@ interface IAgentSessionItemTemplate {
 }
 
 export interface IAgentSessionRendererOptions {
-	readonly disableHover?: boolean;
 	getHoverPosition(): HoverPosition;
 }
 
@@ -112,10 +111,6 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 				h('div.agent-session-main-col', [
 					h('div.agent-session-title-row', [
 						h('div.agent-session-title@title'),
-						h('div.agent-session-status@statusContainer', [
-							h('span.agent-session-status-provider-icon@statusProviderIcon'),
-							h('span.agent-session-status-time@statusTime')
-						]),
 						h('div.agent-session-title-toolbar@titleToolbar'),
 					]),
 					h('div.agent-session-details-row', [
@@ -125,8 +120,11 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 								h('span.agent-session-diff-removed@removedSpan')
 							]),
 						h('div.agent-session-badge@badge'),
-						h('span.agent-session-separator@separator'),
 						h('div.agent-session-description@description'),
+						h('div.agent-session-status@statusContainer', [
+							h('span.agent-session-status-provider-icon@statusProviderIcon'),
+							h('span.agent-session-status-time@statusTime')
+						])
 					])
 				])
 			]
@@ -149,7 +147,6 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 			diffAddedSpan: elements.addedSpan,
 			diffRemovedSpan: elements.removedSpan,
 			badge: elements.badge,
-			separator: elements.separator,
 			description: elements.description,
 			statusContainer: elements.statusContainer,
 			statusProviderIcon: elements.statusProviderIcon,
@@ -211,17 +208,16 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 		ChatContextKeys.hasAgentSessionChanges.bindTo(template.contextKeyService).set(hasAgentSessionChanges);
 
 		// Badge
-		const hasBadge = this.renderBadge(session, template);
+		let hasBadge = false;
+		if (!isSessionInProgressStatus(session.element.status)) {
+			hasBadge = this.renderBadge(session, template);
+		}
 		template.badge.classList.toggle('has-badge', hasBadge);
 
 		// Description (unless diff is shown)
 		if (!hasDiff) {
 			this.renderDescription(session, template, hasBadge);
 		}
-
-		// Separator (dot between badge and description)
-		const hasDescription = template.description.textContent !== '';
-		template.separator.classList.toggle('has-separator', hasBadge && hasDescription);
 
 		// Status
 		this.renderStatus(session, template);
@@ -314,8 +310,8 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 				const duration = this.toDuration(session.element.timing.lastRequestStarted, session.element.timing.lastRequestEnded, false, true);
 
 				template.description.textContent = session.element.status === AgentSessionStatus.Failed ?
-					localize('chat.session.status.failedAfter', "Failed after {0}", duration) :
-					localize('chat.session.status.completedAfter', "Completed in {0}", duration);
+					localize('chat.session.status.failedAfter', "Failed after {0}.", duration) :
+					localize('chat.session.status.completedAfter', "Completed in {0}.", duration);
 			} else {
 				template.description.textContent = session.element.status === AgentSessionStatus.Failed ?
 					localize('chat.session.status.failed', "Failed") :
@@ -342,21 +338,20 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 			}
 
 			if (!timeLabel) {
-				const date = getAgentSessionTime(session.timing);
+				const date = session.timing.lastRequestEnded ?? session.timing.lastRequestStarted ?? session.timing.created;
 				const seconds = Math.round((new Date().getTime() - date) / 1000);
 				if (seconds < 60) {
 					timeLabel = localize('secondsDuration', "now");
 				} else {
-					timeLabel = sessionDateFromNow(date);
+					timeLabel = fromNow(date, true);
 				}
 			}
 
 			return timeLabel;
 		};
 
-		// Provider icon (only shown for non-local sessions)
-		const isLocal = session.element.providerType === AgentSessionProviders.Local;
-		template.statusProviderIcon.className = isLocal ? '' : `agent-session-status-provider-icon ${ThemeIcon.asClassName(session.element.icon)}`;
+		// Provider icon
+		template.statusProviderIcon.className = `agent-session-status-provider-icon ${ThemeIcon.asClassName(session.element.icon)}`;
 
 		// Time label
 		template.statusTime.textContent = getTimeLabel(session.element);
@@ -365,10 +360,6 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 	}
 
 	private renderHover(session: ITreeNode<IAgentSession, FuzzyScore>, template: IAgentSessionItemTemplate): void {
-		if (this.options.disableHover) {
-			return;
-		}
-
 		if (!isSessionInProgressStatus(session.element.status) && session.element.isRead()) {
 			return; // the hover is complex and large, for now limit it to in-progress sessions only
 		}
@@ -508,7 +499,7 @@ export class AgentSessionSectionRenderer implements ICompressibleTreeRenderer<IA
 
 export class AgentSessionsListDelegate implements IListVirtualDelegate<AgentSessionListItem> {
 
-	static readonly ITEM_HEIGHT = 48;
+	static readonly ITEM_HEIGHT = 52;
 	static readonly SECTION_HEIGHT = 26;
 
 	getHeight(element: AgentSessionListItem): number {
@@ -668,10 +659,6 @@ export class AgentSessionsDataSource implements IAsyncDataSource<IAgentSessionsM
 		const sortedSessions = sessions.sort(this.sorter.compare.bind(this.sorter));
 
 		if (this.filter?.groupResults?.() === AgentSessionsGrouping.Capped) {
-			if (this.filter?.getExcludes().read) {
-				return sortedSessions; // When filtering to show only unread sessions, show a flat list
-			}
-
 			return this.groupSessionsCapped(sortedSessions);
 		} else {
 			return this.groupSessionsByDate(sortedSessions);
@@ -694,7 +681,7 @@ export class AgentSessionsDataSource implements IAsyncDataSource<IAgentSessionsM
 		if (othersSessions.length > 0) {
 			result.push({
 				section: AgentSessionSection.More,
-				label: AgentSessionSectionLabels[AgentSessionSection.More],
+				label: localize('agentSessions.moreSectionWithCount', "More ({0})", othersSessions.length),
 				sessions: othersSessions
 			});
 		}
@@ -718,17 +705,18 @@ export class AgentSessionsDataSource implements IAsyncDataSource<IAgentSessionsM
 	}
 }
 
+const DAY_THRESHOLD = 24 * 60 * 60 * 1000;
+const WEEK_THRESHOLD = 7 * DAY_THRESHOLD;
+
 export const AgentSessionSectionLabels = {
+	[AgentSessionSection.InProgress]: localize('agentSessions.inProgressSection', "In Progress"),
 	[AgentSessionSection.Today]: localize('agentSessions.todaySection', "Today"),
 	[AgentSessionSection.Yesterday]: localize('agentSessions.yesterdaySection', "Yesterday"),
-	[AgentSessionSection.Week]: localize('agentSessions.weekSection', "Last 7 days"),
+	[AgentSessionSection.Week]: localize('agentSessions.weekSection', "Last Week"),
 	[AgentSessionSection.Older]: localize('agentSessions.olderSection', "Older"),
 	[AgentSessionSection.Archived]: localize('agentSessions.archivedSection', "Archived"),
 	[AgentSessionSection.More]: localize('agentSessions.moreSection', "More"),
 };
-
-const DAY_THRESHOLD = 24 * 60 * 60 * 1000;
-const WEEK_THRESHOLD = 7 * DAY_THRESHOLD;
 
 export function groupAgentSessionsByDate(sessions: IAgentSession[]): Map<AgentSessionSection, IAgentSessionSection> {
 	const now = Date.now();
@@ -736,6 +724,7 @@ export function groupAgentSessionsByDate(sessions: IAgentSession[]): Map<AgentSe
 	const startOfYesterday = startOfToday - DAY_THRESHOLD;
 	const weekThreshold = now - WEEK_THRESHOLD;
 
+	const inProgressSessions: IAgentSession[] = [];
 	const todaySessions: IAgentSession[] = [];
 	const yesterdaySessions: IAgentSession[] = [];
 	const weekSessions: IAgentSession[] = [];
@@ -745,8 +734,10 @@ export function groupAgentSessionsByDate(sessions: IAgentSession[]): Map<AgentSe
 	for (const session of sessions) {
 		if (session.isArchived()) {
 			archivedSessions.push(session);
+		} else if (isSessionInProgressStatus(session.status)) {
+			inProgressSessions.push(session);
 		} else {
-			const sessionTime = getAgentSessionTime(session.timing);
+			const sessionTime = session.timing.lastRequestEnded ?? session.timing.lastRequestStarted ?? session.timing.created;
 			if (sessionTime >= startOfToday) {
 				todaySessions.push(session);
 			} else if (sessionTime >= startOfYesterday) {
@@ -760,35 +751,13 @@ export function groupAgentSessionsByDate(sessions: IAgentSession[]): Map<AgentSe
 	}
 
 	return new Map<AgentSessionSection, IAgentSessionSection>([
+		[AgentSessionSection.InProgress, { section: AgentSessionSection.InProgress, label: AgentSessionSectionLabels[AgentSessionSection.InProgress], sessions: inProgressSessions }],
 		[AgentSessionSection.Today, { section: AgentSessionSection.Today, label: AgentSessionSectionLabels[AgentSessionSection.Today], sessions: todaySessions }],
 		[AgentSessionSection.Yesterday, { section: AgentSessionSection.Yesterday, label: AgentSessionSectionLabels[AgentSessionSection.Yesterday], sessions: yesterdaySessions }],
 		[AgentSessionSection.Week, { section: AgentSessionSection.Week, label: AgentSessionSectionLabels[AgentSessionSection.Week], sessions: weekSessions }],
 		[AgentSessionSection.Older, { section: AgentSessionSection.Older, label: AgentSessionSectionLabels[AgentSessionSection.Older], sessions: olderSessions }],
-		[AgentSessionSection.Archived, { section: AgentSessionSection.Archived, label: AgentSessionSectionLabels[AgentSessionSection.Archived], sessions: archivedSessions }],
+		[AgentSessionSection.Archived, { section: AgentSessionSection.Archived, label: localize('agentSessions.archivedSectionWithCount', "Archived ({0})", archivedSessions.length), sessions: archivedSessions }],
 	]);
-}
-
-export function sessionDateFromNow(sessionTime: number): string {
-	const now = Date.now();
-	const startOfToday = new Date(now).setHours(0, 0, 0, 0);
-	const startOfYesterday = startOfToday - DAY_THRESHOLD;
-	const startOfTwoDaysAgo = startOfYesterday - DAY_THRESHOLD;
-
-	// our grouping by date uses absolute start times for "Today"
-	// and "Yesterday" while `fromNow` only works with full 24h
-	// and 48h ranges for these. To prevent a label like "1 day ago"
-	// to show under the "Last 7 Days" section, we do a bit of
-	// normalization logic.
-
-	if (sessionTime < startOfToday && sessionTime >= startOfYesterday) {
-		return localize('date.fromNow.days.singular', '1 day');
-	}
-
-	if (sessionTime < startOfYesterday && sessionTime >= startOfTwoDaysAgo) {
-		return localize('date.fromNow.days.multiple', '2 days');
-	}
-
-	return fromNow(sessionTime, false);
 }
 
 export class AgentSessionsIdentityProvider implements IIdentityProvider<IAgentSessionsModel | AgentSessionListItem> {
@@ -870,8 +839,8 @@ export class AgentSessionsSorter implements ITreeSorter<IAgentSession> {
 		}
 
 		//Sort by end or start time (most recent first)
-		const timeA = getAgentSessionTime(sessionA.timing);
-		const timeB = getAgentSessionTime(sessionB.timing);
+		const timeA = sessionA.timing.lastRequestEnded ?? sessionA.timing.lastRequestStarted ?? sessionA.timing.created;
+		const timeB = sessionB.timing.lastRequestEnded ?? sessionB.timing.lastRequestStarted ?? sessionB.timing.created;
 		return timeB - timeA;
 	}
 }

@@ -45,7 +45,6 @@ import { InMemoryUserDataProfilesService, IUserDataProfile, IUserDataProfilesSer
 import { NullPolicyService } from '../../../policy/common/policy.js';
 import { IUserDataProfileStorageService } from '../../../userDataProfile/common/userDataProfileStorageService.js';
 import { TestUserDataProfileStorageService } from '../../../userDataProfile/test/common/userDataProfileStorageService.test.js';
-import { IMeteredConnectionService } from '../../../meteredConnection/common/meteredConnection.js';
 
 export class UserDataSyncClient extends Disposable {
 
@@ -101,8 +100,6 @@ export class UserDataSyncClient extends Disposable {
 		const configurationService = this._register(new ConfigurationService(userDataProfilesService.defaultProfile.settingsResource, fileService, new NullPolicyService(), logService));
 		await configurationService.initialize();
 		this.instantiationService.stub(IConfigurationService, configurationService);
-
-		this.instantiationService.stub(IMeteredConnectionService, { isConnectionMetered: false, onDidChangeIsConnectionMetered: new Emitter<boolean>().event });
 
 		this.instantiationService.stub(IRequestService, this.testServer);
 

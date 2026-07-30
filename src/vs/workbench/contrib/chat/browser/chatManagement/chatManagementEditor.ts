@@ -29,7 +29,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { Dimension } from '../../../../../base/browser/dom.js';
 import { registerColor } from '../../../../../platform/theme/common/colorRegistry.js';
 import { PANEL_BORDER } from '../../../../common/theme.js';
-import { DisposableStore, MutableDisposable } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IContextKey, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { CONTEXT_MODELS_EDITOR } from '../../common/constants.js';
 
@@ -134,7 +134,6 @@ export class ChatManagementEditor extends EditorPane {
 
 	private readonly commandService: ICommandService;
 	private readonly chatEntitlementService: IChatEntitlementService;
-	private readonly actionButtonClickListener = this._register(new MutableDisposable());
 
 	constructor(
 		group: IEditorGroup,
@@ -391,7 +390,7 @@ export class ChatManagementEditor extends EditorPane {
 			}
 
 			this.actionButton.label = buttonLabel;
-			this.actionButtonClickListener.value = this.actionButton.onDidClick(() => {
+			this.actionButton.onDidClick(() => {
 				this.commandService.executeCommand(commandId);
 			});
 		} else {

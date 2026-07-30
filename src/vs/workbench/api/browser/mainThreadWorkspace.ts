@@ -140,6 +140,7 @@ export class MainThreadWorkspace implements MainThreadWorkspaceShape {
 			id: workspace.id,
 			name: this._labelService.getWorkspaceLabel(workspace),
 			transient: workspace.transient,
+			isAgentSessionsWorkspace: workspace.isAgentSessionsWorkspace
 		};
 	}
 

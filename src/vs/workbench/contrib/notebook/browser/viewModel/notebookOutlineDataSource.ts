@@ -218,6 +218,5 @@ export class NotebookCellOutlineDataSource implements INotebookCellOutlineDataSo
 		this._entries.length = 0;
 		this._activeEntry = undefined;
 		this._disposables.dispose();
-		this._onDidChange.dispose();
 	}
 }

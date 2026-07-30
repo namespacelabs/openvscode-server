@@ -434,7 +434,7 @@ export const mcpPromptPrefix = (definition: McpDefinitionReference) =>
 export interface IMcpPromptMessage extends MCP.PromptMessage { }
 
 export interface IMcpToolCallContext {
-	chatSessionResource: URI | undefined;
+	chatSessionId?: string;
 	chatRequestId?: string;
 }
 

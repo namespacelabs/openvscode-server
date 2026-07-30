@@ -15,7 +15,6 @@ import { IMarkerService, IMarkerData, MarkerSeverity, IMarker } from '../../../.
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { isWindows } from '../../../../base/common/platform.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
 
 export const enum ProblemCollectorEventKind {
 	BackgroundProcessingBegins = 'backgroundProcessingBegins',
@@ -59,20 +58,20 @@ export abstract class AbstractProblemCollector extends Disposable implements IDi
 
 	protected _onDidStateChange: Emitter<IProblemCollectorEvent>;
 
-	protected readonly _onDidFindFirstMatch = this._register(new Emitter<void>());
+	protected readonly _onDidFindFirstMatch = new Emitter<void>();
 	readonly onDidFindFirstMatch = this._onDidFindFirstMatch.event;
 
-	protected readonly _onDidFindErrors = this._register(new Emitter<IMarker[]>());
+	protected readonly _onDidFindErrors = new Emitter<IMarker[]>();
 	readonly onDidFindErrors = this._onDidFindErrors.event;
 
-	protected readonly _onDidRequestInvalidateLastMarker = this._register(new Emitter<void>());
+	protected readonly _onDidRequestInvalidateLastMarker = new Emitter<void>();
 	readonly onDidRequestInvalidateLastMarker = this._onDidRequestInvalidateLastMarker.event;
 
-	constructor(public readonly problemMatchers: ProblemMatcher[], protected markerService: IMarkerService, protected modelService: IModelService, fileService?: IFileService, protected readonly logService?: ILogService) {
+	constructor(public readonly problemMatchers: ProblemMatcher[], protected markerService: IMarkerService, protected modelService: IModelService, fileService?: IFileService) {
 		super();
 		this.matchers = Object.create(null);
 		this.bufferLength = 1;
-		problemMatchers.map(elem => createLineMatcher(elem, fileService, logService)).forEach((matcher) => {
+		problemMatchers.map(elem => createLineMatcher(elem, fileService)).forEach((matcher) => {
 			const length = matcher.matchLength;
 			if (length > this.bufferLength) {
 				this.bufferLength = length;
@@ -109,7 +108,7 @@ export abstract class AbstractProblemCollector extends Disposable implements IDi
 		}, this, this.modelListeners));
 		this.modelService.getModels().forEach(model => this.openModels[model.uri.toString()] = true);
 
-		this._onDidStateChange = this._register(new Emitter());
+		this._onDidStateChange = new Emitter();
 	}
 
 	public get onDidStateChange(): Event<IProblemCollectorEvent> {
@@ -365,8 +364,8 @@ export class StartStopProblemCollector extends AbstractProblemCollector implemen
 
 	private _hasStarted: boolean = false;
 
-	constructor(problemMatchers: ProblemMatcher[], markerService: IMarkerService, modelService: IModelService, _strategy: ProblemHandlingStrategy = ProblemHandlingStrategy.Clean, fileService?: IFileService, logService?: ILogService) {
-		super(problemMatchers, markerService, modelService, fileService, logService);
+	constructor(problemMatchers: ProblemMatcher[], markerService: IMarkerService, modelService: IModelService, _strategy: ProblemHandlingStrategy = ProblemHandlingStrategy.Clean, fileService?: IFileService) {
+		super(problemMatchers, markerService, modelService, fileService);
 		const ownerSet: { [key: string]: boolean } = Object.create(null);
 		problemMatchers.forEach(description => ownerSet[description.owner] = true);
 		this.owners = Object.keys(ownerSet);
@@ -423,8 +422,8 @@ export class WatchingProblemCollector extends AbstractProblemCollector implement
 
 	private lines: string[] = [];
 	public beginPatterns: RegExp[] = [];
-	constructor(problemMatchers: ProblemMatcher[], markerService: IMarkerService, modelService: IModelService, fileService?: IFileService, logService?: ILogService) {
-		super(problemMatchers, markerService, modelService, fileService, logService);
+	constructor(problemMatchers: ProblemMatcher[], markerService: IMarkerService, modelService: IModelService, fileService?: IFileService) {
+		super(problemMatchers, markerService, modelService, fileService);
 		this.resetCurrentResource();
 		this.backgroundPatterns = [];
 		this._activeBackgroundMatchers = new Set<string>();
@@ -449,11 +448,7 @@ export class WatchingProblemCollector extends AbstractProblemCollector implement
 				false,
 				true
 			)(async (markerEvent: readonly URI[]) => {
-				if (markerEvent.length === 0) {
-					return;
-				}
-				const modelEventUriStr = modelEvent.uri.toString();
-				if ((!markerEvent.some(uri => uri.toString() === modelEventUriStr)) || (this.markerService.read({ resource: modelEvent.uri }).length !== 0)) {
+				if (!markerEvent || !markerEvent.includes(modelEvent.uri) || (this.markerService.read({ resource: modelEvent.uri }).length !== 0)) {
 					return;
 				}
 				const oldLines = Array.from(this.lines);
@@ -462,8 +457,8 @@ export class WatchingProblemCollector extends AbstractProblemCollector implement
 				}
 			});
 
-			// Dispose the debounced listener after timeout - no need to register it since
-			// it's only used temporarily and will be disposed below
+			this._register(markerChanged); // Ensures markerChanged is tracked and disposed of properly
+
 			setTimeout(() => {
 				if (markerChanged) {
 					const _markerChanged = markerChanged;
@@ -515,12 +510,7 @@ export class WatchingProblemCollector extends AbstractProblemCollector implement
 	private async tryBegin(line: string): Promise<boolean> {
 		let result = false;
 		for (const background of this.backgroundPatterns) {
-			const start = Date.now();
 			const matches = background.begin.regexp.exec(line);
-			const elapsed = Date.now() - start;
-			if (elapsed > 5) {
-				this.logService?.trace(`ProblemMatcher: slow begin regexp took ${elapsed}ms to execute`, background.begin.regexp.source);
-			}
 			if (matches) {
 				if (this._activeBackgroundMatchers.has(background.key)) {
 					continue;
@@ -549,12 +539,7 @@ export class WatchingProblemCollector extends AbstractProblemCollector implement
 	private tryFinish(line: string): boolean {
 		let result = false;
 		for (const background of this.backgroundPatterns) {
-			const start = Date.now();
 			const matches = background.end.regexp.exec(line);
-			const elapsed = Date.now() - start;
-			if (elapsed > 5) {
-				this.logService?.trace(`ProblemMatcher: slow end regexp took ${elapsed}ms to execute`, background.end.regexp.source);
-			}
 			if (matches) {
 				if (this._numberOfMatches > 0) {
 					this._onDidFindErrors.fire(this.markerService.read({ owner: background.matcher.owner }));

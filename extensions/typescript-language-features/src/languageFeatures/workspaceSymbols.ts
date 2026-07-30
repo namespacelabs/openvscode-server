@@ -13,7 +13,6 @@ import * as PConst from '../tsServer/protocol/protocol.const';
 import * as typeConverters from '../typeConverters';
 import { ITypeScriptServiceClient } from '../typescriptService';
 import { coalesce } from '../utils/arrays';
-import { readUnifiedConfig } from '../utils/configuration';
 
 function getSymbolKind(item: Proto.NavtoItem): vscode.SymbolKind {
 	switch (item.kind) {
@@ -71,7 +70,7 @@ class TypeScriptWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvide
 
 	private get searchAllOpenProjects() {
 		return this.client.apiVersion.gte(API.v390)
-			&& readUnifiedConfig<string>('workspaceSymbols.scope', 'allOpenProjects', { scope: null, fallbackSection: 'typescript' }) === 'allOpenProjects';
+			&& vscode.workspace.getConfiguration('typescript').get('workspaceSymbols.scope', 'allOpenProjects') === 'allOpenProjects';
 	}
 
 	private async toOpenedFiledPath(document: vscode.TextDocument) {

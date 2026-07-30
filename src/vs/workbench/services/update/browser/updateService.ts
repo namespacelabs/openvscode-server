@@ -82,7 +82,7 @@ export class BrowserUpdateService extends Disposable implements IUpdateService {
 		return undefined; // no update provider to ask
 	}
 
-	async downloadUpdate(_explicit: boolean): Promise<void> {
+	async downloadUpdate(): Promise<void> {
 		// no-op
 	}
 

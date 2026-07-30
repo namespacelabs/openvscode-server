@@ -129,7 +129,6 @@ class AttachFileToChatAction extends AttachResourceAction {
 			id: AttachFileToChatAction.ID,
 			title: localize2('workbench.action.chat.attachFile.label', "Add File to Chat"),
 			category: CHAT_CATEGORY,
-			icon: Codicon.attach,
 			precondition: ChatContextKeys.enabled,
 			f1: true,
 			menu: [{
@@ -174,14 +173,9 @@ class AttachFileToChatAction extends AttachResourceAction {
 					)
 				)
 			}, {
-				id: MenuId.InlineChatEditorAffordance,
-				group: '0_chat',
-				order: 3,
-				when: ContextKeyExpr.and(ChatContextKeys.enabled, EditorContextKeys.hasNonEmptySelection.negate())
-			}, {
-				id: MenuId.ChatEditorInlineMenu,
-				group: '0_chat',
-				order: 3,
+				id: MenuId.ChatEditorInlineGutter,
+				group: '2_chat',
+				order: 2,
 				when: ContextKeyExpr.and(ChatContextKeys.enabled, EditorContextKeys.hasNonEmptySelection.negate())
 			}]
 		});
@@ -296,7 +290,6 @@ class AttachSelectionToChatAction extends Action2 {
 			id: AttachSelectionToChatAction.ID,
 			title: localize2('workbench.action.chat.attachSelection.label', "Add Selection to Chat"),
 			category: CHAT_CATEGORY,
-			icon: Codicon.attach,
 			f1: true,
 			precondition: ChatContextKeys.enabled,
 			menu: [{
@@ -314,14 +307,9 @@ class AttachSelectionToChatAction extends Action2 {
 					)
 				)
 			}, {
-				id: MenuId.InlineChatEditorAffordance,
-				group: '0_chat',
-				order: 2,
-				when: ContextKeyExpr.and(ChatContextKeys.enabled, EditorContextKeys.hasNonEmptySelection)
-			}, {
-				id: MenuId.ChatEditorInlineMenu,
-				group: '0_chat',
-				order: 2,
+				id: MenuId.ChatEditorInlineGutter,
+				group: '2_chat',
+				order: 1,
 				when: ContextKeyExpr.and(ChatContextKeys.enabled, EditorContextKeys.hasNonEmptySelection)
 			}]
 		});

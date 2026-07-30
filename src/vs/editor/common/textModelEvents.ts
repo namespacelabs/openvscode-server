@@ -308,13 +308,9 @@ export class LineInjectedText {
 export class ModelRawLineChanged {
 	public readonly changeType = RawContentChangedType.LineChanged;
 	/**
-	 * The line number that has changed (before the change was applied).
+	 * The line that has changed.
 	 */
 	public readonly lineNumber: number;
-	/**
-	 * The new line number the old one is mapped to (after the change was applied).
-	 */
-	public readonly lineNumberPostEdit: number;
 	/**
 	 * The new value of the line.
 	 */
@@ -324,9 +320,8 @@ export class ModelRawLineChanged {
 	 */
 	public readonly injectedText: LineInjectedText[] | null;
 
-	constructor(lineNumber: number, lineNumberPostEdit: number, detail: string, injectedText: LineInjectedText[] | null) {
+	constructor(lineNumber: number, detail: string, injectedText: LineInjectedText[] | null) {
 		this.lineNumber = lineNumber;
-		this.lineNumberPostEdit = lineNumberPostEdit;
 		this.detail = detail;
 		this.injectedText = injectedText;
 	}
@@ -415,25 +410,9 @@ export class ModelRawLinesInserted {
 	 */
 	public readonly fromLineNumber: number;
 	/**
-	 * The actual start line number in the updated buffer where the newly inserted content can be found.
-	 */
-	public readonly fromLineNumberPostEdit: number;
-	/**
-	 * The count of inserted lines.
-	*/
-	public readonly count: number;
-	/**
 	 * `toLineNumber` - `fromLineNumber` + 1 denotes the number of lines that were inserted
 	 */
-	public get toLineNumber(): number {
-		return this.fromLineNumber + this.count - 1;
-	}
-	/**
-	 * The actual end line number of the insertion in the updated buffer.
-	 */
-	public get toLineNumberPostEdit(): number {
-		return this.fromLineNumberPostEdit + this.count - 1;
-	}
+	public readonly toLineNumber: number;
 	/**
 	 * The text that was inserted
 	 */
@@ -443,11 +422,10 @@ export class ModelRawLinesInserted {
 	 */
 	public readonly injectedTexts: (LineInjectedText[] | null)[];
 
-	constructor(fromLineNumber: number, fromLineNumberPostEdit: number, count: number, detail: string[], injectedTexts: (LineInjectedText[] | null)[]) {
+	constructor(fromLineNumber: number, toLineNumber: number, detail: string[], injectedTexts: (LineInjectedText[] | null)[]) {
 		this.injectedTexts = injectedTexts;
 		this.fromLineNumber = fromLineNumber;
-		this.fromLineNumberPostEdit = fromLineNumberPostEdit;
-		this.count = count;
+		this.toLineNumber = toLineNumber;
 		this.detail = detail;
 	}
 }

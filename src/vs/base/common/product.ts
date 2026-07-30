@@ -340,7 +340,6 @@ export interface IDefaultChatAgent {
 	readonly chatExtensionId: string;
 
 	readonly chatExtensionOutputId: string;
-	readonly chatExtensionOutputExtensionStateCommand: string;
 
 	readonly documentationUrl: string;
 	readonly skusDocumentationUrl: string;
@@ -360,7 +359,6 @@ export interface IDefaultChatAgent {
 		apple: { id: string; name: string };
 	};
 
-	readonly providerExtensionId: string;
 	readonly providerUriSetting: string;
 	readonly providerScopes: string[][];
 

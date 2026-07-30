@@ -87,7 +87,7 @@ export class PromptHoverProvider implements HoverProvider {
 						case PromptHeaderAttributes.handOffs:
 							return this.getHandsOffHover(attribute, position, target);
 						case PromptHeaderAttributes.infer:
-							return this.createHover(description + '\n\n' + localize('promptHeader.attribute.infer.hover', 'Deprecated: Use `user-invocable` and `disable-model-invocation` instead.'), attribute.range);
+							return this.createHover(description + '\n\n' + localize('promptHeader.attribute.infer.hover', 'Deprecated: Use `user-invokable` and `disable-model-invocation` instead.'), attribute.range);
 						default:
 							return this.createHover(description, attribute.range);
 					}
@@ -99,12 +99,12 @@ export class PromptHoverProvider implements HoverProvider {
 
 	private getToolHover(node: IHeaderAttribute, position: Position, baseMessage: string, target: Target): Hover | undefined {
 		let value = node.value;
-		if (value.type === 'scalar') {
+		if (value.type === 'string') {
 			value = parseCommaSeparatedList(value);
 		}
-		if (value.type === 'sequence') {
+		if (value.type === 'array') {
 			for (const toolName of value.items) {
-				if (toolName.type === 'scalar' && toolName.range.containsPosition(position)) {
+				if (toolName.type === 'string' && toolName.range.containsPosition(position)) {
 					const description = this.getToolHoverByName(toolName.value, toolName.range, target);
 					if (description) {
 						return description;
@@ -167,10 +167,8 @@ export class PromptHoverProvider implements HoverProvider {
 					return this.createHover(lines.join('\n'), node.range);
 				}
 			}
-
-			const result = this.languageModelsService.lookupLanguageModelByQualifiedName(modelName);
-			if (result) {
-				const meta = result.metadata;
+			const meta = this.languageModelsService.lookupLanguageModelByQualifiedName(modelName);
+			if (meta) {
 				lines.push(localize('modelName', '- Name: {0}', meta.name));
 				lines.push(localize('modelFamily', '- Family: {0}', meta.family));
 				lines.push(localize('modelVendor', '- Vendor: {0}', meta.vendor));
@@ -181,14 +179,14 @@ export class PromptHoverProvider implements HoverProvider {
 			}
 			return undefined;
 		};
-		if (node.value.type === 'scalar') {
+		if (node.value.type === 'string') {
 			const hover = modelHoverContent(node.value.value);
 			if (hover) {
 				return hover;
 			}
-		} else if (node.value.type === 'sequence') {
+		} else if (node.value.type === 'array') {
 			for (const item of node.value.items) {
-				if (item.type === 'scalar' && item.range.containsPosition(position)) {
+				if (item.type === 'string' && item.range.containsPosition(position)) {
 					const hover = modelHoverContent(item.value);
 					if (hover) {
 						return hover;
@@ -202,7 +200,7 @@ export class PromptHoverProvider implements HoverProvider {
 	private getAgentHover(agentAttribute: IHeaderAttribute, position: Position, baseMessage: string): Hover | undefined {
 		const lines: string[] = [];
 		const value = agentAttribute.value;
-		if (value.type === 'scalar' && value.range.containsPosition(position)) {
+		if (value.type === 'string' && value.range.containsPosition(position)) {
 			const agent = this.chatModeService.findModeByName(value.value);
 			if (agent) {
 				const description = agent.description.get() || (isBuiltinChatMode(agent) ? localize('promptHeader.prompt.agent.builtInDesc', 'Built-in agent') : localize('promptHeader.prompt.agent.customDesc', 'Custom agent'));

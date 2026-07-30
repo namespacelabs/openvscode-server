@@ -84,14 +84,6 @@ class AgentSessionReadyContribution extends Disposable implements IWorkbenchCont
 				this._checkSession(currentWidget.viewModel?.sessionResource);
 			}
 		}));
-
-		// Watch for agent sessions model changes - sessions are resolved asynchronously
-		this._register(this.agentSessionsService.model.onDidChangeSessions(() => {
-			const currentWidget = this.chatWidgetService.getAllWidgets().find(w => w.location === ChatAgentLocation.Chat);
-			if (currentWidget) {
-				this._checkSession(currentWidget.viewModel?.sessionResource);
-			}
-		}));
 	}
 
 	private _watchWidget(widget: IChatWidget): void {
@@ -112,21 +104,6 @@ class AgentSessionReadyContribution extends Disposable implements IWorkbenchCont
 		if (sessionResource?.toString() !== this._watchedSessionResource?.toString()) {
 			this._suppressSessionReady = false;
 		}
-
-		// If we're in projection mode and switching to a different session,
-		// automatically enter projection for the new session (if eligible)
-		if (this.agentSessionProjectionService.isActive) {
-			const activeSession = this.agentSessionProjectionService.activeSession;
-			if (sessionResource && activeSession && sessionResource.toString() !== activeSession.resource.toString()) {
-				const newSession = this.agentSessionsService.getSession(sessionResource);
-				if (newSession) {
-					// enterProjection handles session switching and will check eligibility
-					this.agentSessionProjectionService.enterProjection(newSession);
-				}
-			}
-			return;
-		}
-
 		// Update state based on current session
 		this._updateSessionReadyState(sessionResource);
 	}
@@ -146,9 +123,10 @@ class AgentSessionReadyContribution extends Disposable implements IWorkbenchCont
 			return;
 		}
 
-		// If already in projection mode, don't show session-ready (handled by _checkSession)
+		// Check if already in projection mode
 		if (this.agentSessionProjectionService.isActive) {
 			this._clearEntriesWatcher();
+			this.agentTitleBarStatusService.exitSessionReadyMode();
 			return;
 		}
 

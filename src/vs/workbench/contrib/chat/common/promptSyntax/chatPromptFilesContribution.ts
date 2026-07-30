@@ -18,13 +18,11 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { SyncDescriptor } from '../../../../../platform/instantiation/common/descriptors.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { Extensions, IExtensionFeaturesRegistry, IExtensionFeatureTableRenderer, IRenderedData, IRowData, ITableData } from '../../../../services/extensionManagement/common/extensionFeatures.js';
-import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 
 interface IRawChatFileContribution {
 	readonly path: string;
 	readonly name?: string;
 	readonly description?: string;
-	readonly when?: string;
 }
 
 enum ChatContributionPoint {
@@ -45,17 +43,13 @@ function registerChatFilesExtensionPoint(point: ChatContributionPoint) {
 				type: 'object',
 				defaultSnippets: [{
 					body: {
-						path: point === ChatContributionPoint.chatSkills
-							? './relative/path/to/skill-name/SKILL.md'
-							: './relative/path/to/file.md',
+						path: './relative/path/to/file.md',
 					}
 				}],
 				required: ['path'],
 				properties: {
 					path: {
-						description: point === ChatContributionPoint.chatSkills
-							? localize('chatContribution.property.path.skills', 'Path to the SKILL.md file relative to the extension root. The folder name must match the "name" property in SKILL.md.')
-							: localize('chatContribution.property.path', 'Path to the file relative to the extension root.'),
+						description: localize('chatContribution.property.path', 'Path to the file relative to the extension root.'),
 						type: 'string'
 					},
 					name: {
@@ -66,10 +60,6 @@ function registerChatFilesExtensionPoint(point: ChatContributionPoint) {
 					description: {
 						description: localize('chatContribution.property.description', '(Optional) Description of the entry.'),
 						deprecationMessage: localize('chatContribution.property.description.deprecated', 'Specify "description" in the prompt file itself instead.'),
-						type: 'string'
-					},
-					when: {
-						description: localize('chatContribution.property.when', '(Optional) A condition which must be true to enable this entry.'),
 						type: 'string'
 					}
 				}
@@ -128,12 +118,8 @@ export class ChatPromptFilesExtensionPointHandler implements IWorkbenchContribut
 						ext.collector.error(localize('extension.invalid.path', "Extension '{0}' {1} entry '{2}' resolves outside the extension.", ext.description.identifier.value, contributionPoint, raw.path));
 						continue;
 					}
-					if (raw.when && !ContextKeyExpr.deserialize(raw.when)) {
-						ext.collector.error(localize('extension.invalid.when', "Extension '{0}' {1} entry '{2}' has an invalid when clause: '{3}'.", ext.description.identifier.value, contributionPoint, raw.path, raw.when));
-						continue;
-					}
 					try {
-						const d = this.promptsService.registerContributedFile(type, fileUri, ext.description, raw.name, raw.description, raw.when);
+						const d = this.promptsService.registerContributedFile(type, fileUri, ext.description, raw.name, raw.description);
 						this.registrations.set(key(ext.description.identifier, type, raw.path), d);
 					} catch (e) {
 						const msg = e instanceof Error ? e.message : String(e);

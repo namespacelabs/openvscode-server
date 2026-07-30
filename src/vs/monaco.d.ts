@@ -2323,12 +2323,6 @@ declare namespace monaco.editor {
 		 */
 		getCustomLineHeightsDecorations(ownerId?: number): IModelDecoration[];
 		/**
-		 * Gets all the decorations that contain custom line heights.
-		 * @param range The range to search in
-		 * @param ownerId If set, it will ignore decorations belonging to other owners.
-		 */
-		getCustomLineHeightsDecorationsInRange(range: Range, ownerId?: number): IModelDecoration[];
-		/**
 		 * Normalize a string containing whitespace according to indentation rules (converts to spaces or to tabs).
 		 */
 		normalizeIndentation(str: string): string;
@@ -3651,7 +3645,7 @@ declare namespace monaco.editor {
 		 * Enable quick suggestions (shadow suggestions)
 		 * Defaults to true.
 		 */
-		quickSuggestions?: boolean | QuickSuggestionsValue | IQuickSuggestionsOptions;
+		quickSuggestions?: boolean | IQuickSuggestionsOptions;
 		/**
 		 * Quick suggestions show delay (in ms)
 		 * Defaults to 10 (ms)
@@ -3721,11 +3715,6 @@ declare namespace monaco.editor {
 		 * Defaults to false.
 		 */
 		formatOnPaste?: boolean;
-		/**
-		 * Controls whether double-clicking next to a bracket or quote selects the content inside.
-		 * Defaults to true.
-		 */
-		doubleClickSelectsBlock?: boolean;
 		/**
 		 * Controls if the editor should allow to move selections via drag and drop.
 		 * Defaults to false.
@@ -4598,7 +4587,7 @@ declare namespace monaco.editor {
 		cycle?: boolean;
 	}
 
-	export type QuickSuggestionsValue = 'on' | 'inline' | 'off' | 'offWhenInlineCompletions';
+	export type QuickSuggestionsValue = 'on' | 'inline' | 'off';
 
 	/**
 	 * Configuration options for quick suggestions
@@ -5247,8 +5236,7 @@ declare namespace monaco.editor {
 		inlineCompletionsAccessibilityVerbose = 169,
 		effectiveEditContext = 170,
 		scrollOnMiddleClick = 171,
-		effectiveAllowVariableFonts = 172,
-		doubleClickSelectsBlock = 173
+		effectiveAllowVariableFonts = 172
 	}
 
 	export const EditorOptions: {
@@ -5297,7 +5285,6 @@ declare namespace monaco.editor {
 		disableLayerHinting: IEditorOption<EditorOption.disableLayerHinting, boolean>;
 		disableMonospaceOptimizations: IEditorOption<EditorOption.disableMonospaceOptimizations, boolean>;
 		domReadOnly: IEditorOption<EditorOption.domReadOnly, boolean>;
-		doubleClickSelectsBlock: IEditorOption<EditorOption.doubleClickSelectsBlock, boolean>;
 		dragAndDrop: IEditorOption<EditorOption.dragAndDrop, boolean>;
 		emptySelectionClipboard: IEditorOption<EditorOption.emptySelectionClipboard, boolean>;
 		dropIntoEditor: IEditorOption<EditorOption.dropIntoEditor, Readonly<Required<IDropIntoEditorOptions>>>;
@@ -5387,7 +5374,7 @@ declare namespace monaco.editor {
 		showUnused: IEditorOption<EditorOption.showUnused, boolean>;
 		showDeprecated: IEditorOption<EditorOption.showDeprecated, boolean>;
 		inlayHints: IEditorOption<EditorOption.inlayHints, Readonly<Required<IEditorInlayHintsOptions>>>;
-		snippetSuggestions: IEditorOption<EditorOption.snippetSuggestions, 'none' | 'inline' | 'top' | 'bottom'>;
+		snippetSuggestions: IEditorOption<EditorOption.snippetSuggestions, 'none' | 'top' | 'bottom' | 'inline'>;
 		smartSelect: IEditorOption<EditorOption.smartSelect, Readonly<Required<ISmartSelectOptions>>>;
 		smoothScrolling: IEditorOption<EditorOption.smoothScrolling, boolean>;
 		stopRenderingLineAfter: IEditorOption<EditorOption.stopRenderingLineAfter, number>;

@@ -142,19 +142,6 @@ export interface IChatCodeCitation {
 	kind: 'codeCitation';
 }
 
-export interface IChatUsagePromptTokenDetail {
-	category: string;
-	label: string;
-	percentageOfPrompt: number;
-}
-
-export interface IChatUsage {
-	promptTokens: number;
-	completionTokens: number;
-	promptTokenDetails?: readonly IChatUsagePromptTokenDetail[];
-	kind: 'usage';
-}
-
 export interface IChatContentInlineReference {
 	resolveId?: string;
 	inlineReference: URI | Location | IWorkspaceSymbol;
@@ -229,7 +216,6 @@ export class ChatMultiDiffData implements IChatMultiDiffData {
 export interface IChatProgressMessage {
 	content: IMarkdownString;
 	kind: 'progressMessage';
-	shimmer?: boolean;
 }
 
 export interface IChatTask extends IChatTaskDto {
@@ -520,7 +506,7 @@ export interface ILegacyChatTerminalToolInvocationData {
 }
 
 export function isLegacyChatTerminalToolInvocationData(data: unknown): data is ILegacyChatTerminalToolInvocationData {
-	return !!data && typeof data === 'object' && 'command' in data && 'language' in data;
+	return !!data && typeof data === 'object' && 'command' in data;
 }
 
 export interface IChatToolInputInvocationData {
@@ -552,12 +538,12 @@ export type ConfirmedReason =
 	| { type: ToolConfirmKind.ConfirmationNotNeeded; reason?: string | IMarkdownString }
 	| { type: ToolConfirmKind.Setting; id: string }
 	| { type: ToolConfirmKind.LmServicePerTool; scope: 'session' | 'workspace' | 'profile' }
-	| { type: ToolConfirmKind.UserAction; selectedButton?: string }
+	| { type: ToolConfirmKind.UserAction }
 	| { type: ToolConfirmKind.Skipped };
 
 export interface IChatToolInvocation {
 	readonly presentation: IPreparedToolInvocation['presentation'];
-	readonly toolSpecificData?: IChatTerminalToolInvocationData | ILegacyChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatPullRequestContent | IChatTodoListContent | IChatSubagentToolInvocationData | IChatSimpleToolInvocationData | IChatToolResourcesInvocationData;
+	readonly toolSpecificData?: IChatTerminalToolInvocationData | ILegacyChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatPullRequestContent | IChatTodoListContent | IChatSubagentToolInvocationData;
 	readonly originMessage: string | IMarkdownString | undefined;
 	readonly invocationMessage: string | IMarkdownString;
 	readonly pastTenseMessage: string | IMarkdownString | undefined;
@@ -817,7 +803,7 @@ export interface IToolResultOutputDetailsSerialized {
  */
 export interface IChatToolInvocationSerialized {
 	presentation: IPreparedToolInvocation['presentation'];
-	toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatPullRequestContent | IChatTodoListContent | IChatSubagentToolInvocationData | IChatSimpleToolInvocationData | IChatToolResourcesInvocationData;
+	toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatPullRequestContent | IChatTodoListContent | IChatSubagentToolInvocationData;
 	invocationMessage: string | IMarkdownString;
 	originMessage: string | IMarkdownString | undefined;
 	pastTenseMessage: string | IMarkdownString | undefined;
@@ -839,11 +825,7 @@ export interface IChatExtensionsContent {
 }
 
 export interface IChatPullRequestContent {
-	/**
-	 * @deprecated use `command` instead
-	 */
-	uri?: URI;
-	command: Command;
+	uri: URI;
 	title: string;
 	description: string;
 	author: string;
@@ -860,23 +842,6 @@ export interface IChatSubagentToolInvocationData {
 	modelName?: string;
 }
 
-/**
- * Progress type for external tool invocation updates from extensions.
- * When isComplete is false, creates or updates a tool invocation.
- * When isComplete is true, completes an existing tool invocation.
- */
-export interface IChatExternalToolInvocationUpdate {
-	kind: 'externalToolInvocationUpdate';
-	toolCallId: string;
-	toolName: string;
-	isComplete: boolean;
-	errorMessage?: string;
-	invocationMessage?: string | IMarkdownString;
-	pastTenseMessage?: string | IMarkdownString;
-	toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatTodoListContent | IChatSubagentToolInvocationData;
-	subagentInvocationId?: string;
-}
-
 export interface IChatTodoListContent {
 	kind: 'todoList';
 	todoList: Array<{
@@ -884,17 +849,6 @@ export interface IChatTodoListContent {
 		title: string;
 		status: 'not-started' | 'in-progress' | 'completed';
 	}>;
-}
-
-export interface IChatSimpleToolInvocationData {
-	kind: 'simpleToolInvocation';
-	input: string;
-	output: string;
-}
-
-export interface IChatToolResourcesInvocationData {
-	readonly kind: 'resources';
-	readonly values: Array<URI | Location>;
 }
 
 export interface IChatMcpServersStarting {
@@ -978,7 +932,6 @@ export type IChatProgress =
 	| IChatMcpServersStarting
 	| IChatMcpServersStartingSerialized
 	| IChatHookPart
-	| IChatExternalToolInvocationUpdate
 	| IChatDisabledClaudeHooksPart;
 
 export interface IChatFollowup {
@@ -1310,7 +1263,6 @@ export interface IChatSendRequestOptions {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	rejectedConfirmationData?: any[];
 	attachedContext?: IChatRequestVariableEntry[];
-	resolvedVariables?: IChatRequestVariableEntry[];
 
 	/** The target agent ID can be specified with this property instead of using @ in 'message' */
 	agentId?: string;
@@ -1328,12 +1280,6 @@ export interface IChatSendRequestOptions {
 	 * If Steering, also sets yieldRequested on any active request to signal it should wrap up.
 	 */
 	queue?: ChatRequestQueueKind;
-
-	/**
-	 * When true, the queued request will not be processed immediately even if no request is active.
-	 * The request stays in the queue until `processPendingRequests` is called explicitly.
-	 */
-	pauseQueue?: boolean;
 
 }
 
@@ -1452,7 +1398,6 @@ export interface IChatSessionContext {
 	readonly chatSessionType: string;
 	readonly chatSessionResource: URI;
 	readonly isUntitled: boolean;
-	readonly initialSessionOptions?: ReadonlyArray<{ optionId: string; value: string | { id: string; name: string } }>;
 }
 
 export const KEYWORD_ACTIVIATION_SETTING_ID = 'accessibility.voice.keywordActivation';
@@ -1461,21 +1406,3 @@ export interface IChatSessionStartOptions {
 	canUseTools?: boolean;
 	disableBackgroundKeepAlive?: boolean;
 }
-
-export const ChatStopCancellationNoopEventName = 'chat.stopCancellationNoop';
-
-export type ChatStopCancellationNoopEvent = {
-	source: 'cancelAction' | 'chatService';
-	reason: 'noWidget' | 'noViewModel' | 'noPendingRequest' | 'requestAlreadyCanceled' | 'requestIdUnavailable';
-	requestInProgress: 'true' | 'false' | 'unknown';
-	pendingRequests: number;
-};
-
-export type ChatStopCancellationNoopClassification = {
-	source: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The layer where stop cancellation no-op occurred.' };
-	reason: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The no-op reason when stop cancellation did not dispatch fully.' };
-	requestInProgress: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether request-in-progress was true, false, or unknown at no-op time.' };
-	pendingRequests: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The number of queued pending requests at no-op time when known.'; isMeasurement: true };
-	owner: 'roblourens';
-	comment: 'Tracks possible no-op stop cancellation paths.';
-};

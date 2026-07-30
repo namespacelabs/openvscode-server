@@ -7,7 +7,6 @@ import './menuPreventer.js';
 import './accessibility/accessibility.js';
 import './diffEditorHelper.js';
 import './editorFeatures.js';
-import './editorFindAccessibilityHelp.js';
 import './editorSettingsMigration.js';
 import './inspectKeybindings.js';
 import './largeFileOptimizations.js';

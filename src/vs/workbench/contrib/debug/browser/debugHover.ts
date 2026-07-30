@@ -153,7 +153,6 @@ export class DebugHoverWidget implements IContentWidget {
 		});
 
 		this.toDispose.push(VisualizedVariableRenderer.rendererOnVisualizationRange(this.debugService.getViewModel(), this.tree));
-		this.toDispose.push(this.tree);
 
 		this.valueContainer = $('.value');
 		this.valueContainer.tabIndex = 0;

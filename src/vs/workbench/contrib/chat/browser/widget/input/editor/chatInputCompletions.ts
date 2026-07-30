@@ -201,14 +201,14 @@ class SlashCommandCompletions extends Disposable {
 					return null;
 				}
 
-				// Filter out commands that are not user-invocable (hidden from / menu)
-				const userInvocableCommands = promptCommands.filter(c => c.parsedPromptFile?.header?.userInvocable !== false);
-				if (userInvocableCommands.length === 0) {
+				// Filter out commands that are not user-invokable (hidden from / menu)
+				const userInvokableCommands = promptCommands.filter(c => c.parsedPromptFile?.header?.userInvokable !== false);
+				if (userInvokableCommands.length === 0) {
 					return null;
 				}
 
 				return {
-					suggestions: userInvocableCommands.map((c, i): CompletionItem => {
+					suggestions: userInvokableCommands.map((c, i): CompletionItem => {
 						const label = `/${c.name}`;
 						const description = c.description;
 						return {
@@ -362,7 +362,6 @@ class AgentCompletions extends Disposable {
 
 				const justAgents: CompletionItem[] = agents
 					.filter(a => !a.isDefault)
-					.filter(a => !chatSessionAgentIds.has(a.id))
 					.map(agent => {
 						const { label: agentLabel, isDupe } = this.getAgentCompletionDetails(agent);
 						const detail = agent.description;

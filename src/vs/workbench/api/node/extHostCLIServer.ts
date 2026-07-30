@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createRandomIPCHandle } from '../../../base/parts/ipc/node/ipc.net.js';
-import type * as http from 'http';
+import * as http from 'http';
 import * as fs from 'fs';
 import { IExtHostCommands } from '../common/extHostCommands.js';
 import { IWindowOpenable, IOpenWindowOptions } from '../../../platform/window/common/window.js';
@@ -51,37 +51,33 @@ export interface ICommandsExecuter {
 }
 
 export class CLIServerBase {
-	private _server: http.Server | undefined = undefined;
-	private _disposed = false;
+	private readonly _server: http.Server;
 
 	constructor(
 		private readonly _commands: ICommandsExecuter,
 		private readonly logService: ILogService,
 		private readonly _ipcHandlePath: string,
 	) {
-		this.setup();
+		this._server = http.createServer((req, res) => this.onRequest(req, res));
+		this.setup().catch(err => {
+			logService.error(err);
+			return '';
+		});
 	}
 
 	public get ipcHandlePath() {
 		return this._ipcHandlePath;
 	}
 
-	private async setup(): Promise<void> {
+	private async setup(): Promise<string> {
 		try {
-			const http = await import('http');
-			if (this._disposed) {
-				return;
-			}
-			this._server = http.createServer((req, res) => this.onRequest(req, res));
-			try {
-				this._server.listen(this.ipcHandlePath);
-				this._server.on('error', err => this.logService.error(err));
-			} catch (err) {
-				this.logService.error('Could not start open from terminal server.');
-			}
-		} catch (error) {
-			this.logService.error('Error setting up CLI server', error);
+			this._server.listen(this.ipcHandlePath);
+			this._server.on('error', err => this.logService.error(err));
+		} catch (err) {
+			this.logService.error('Could not start open from terminal server.');
 		}
+
+		return this._ipcHandlePath;
 	}
 
 	private onRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
@@ -181,8 +177,7 @@ export class CLIServerBase {
 	}
 
 	dispose(): void {
-		this._disposed = true;
-		this._server?.close();
+		this._server.close();
 
 		if (this._ipcHandlePath && process.platform !== 'win32' && fs.existsSync(this._ipcHandlePath)) {
 			fs.unlinkSync(this._ipcHandlePath);

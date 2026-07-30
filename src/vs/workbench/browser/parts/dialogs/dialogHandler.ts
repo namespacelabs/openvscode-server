@@ -15,19 +15,18 @@ import { IClipboardService } from '../../../../platform/clipboard/common/clipboa
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IMarkdownRendererService, openLinkFromMarkdown } from '../../../../platform/markdown/browser/markdownRenderer.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { createWorkbenchDialogOptions } from './dialog.js';
-import { IHostService } from '../../../services/host/browser/host.js';
+import { createWorkbenchDialogOptions } from '../../../../platform/dialogs/browser/dialog.js';
 
 export class BrowserDialogHandler extends AbstractDialogHandler {
 
-	private static readonly ALLOWABLE_COMMANDS = new Set([
+	private static readonly ALLOWABLE_COMMANDS = [
 		'copy',
 		'cut',
 		'editor.action.selectAll',
 		'editor.action.clipboardCopyAction',
 		'editor.action.clipboardCutAction',
 		'editor.action.clipboardPasteAction'
-	]);
+	];
 
 	constructor(
 		@ILogService private readonly logService: ILogService,
@@ -37,7 +36,6 @@ export class BrowserDialogHandler extends AbstractDialogHandler {
 		@IClipboardService private readonly clipboardService: IClipboardService,
 		@IOpenerService private readonly openerService: IOpenerService,
 		@IMarkdownRendererService private readonly markdownRendererService: IMarkdownRendererService,
-		@IHostService private readonly hostService: IHostService,
 	) {
 		super();
 	}
@@ -121,7 +119,7 @@ export class BrowserDialogHandler extends AbstractDialogHandler {
 				checkboxLabel: checkbox?.label,
 				checkboxChecked: checkbox?.checked,
 				inputs
-			}, this.keybindingService, this.layoutService, this.hostService, BrowserDialogHandler.ALLOWABLE_COMMANDS)
+			}, this.keybindingService, this.layoutService, BrowserDialogHandler.ALLOWABLE_COMMANDS)
 		);
 
 		dialogDisposables.add(dialog);

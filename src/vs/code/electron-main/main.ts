@@ -501,9 +501,9 @@ class CodeMain {
 		}
 
 		try {
-			const updatingMutexName = `${productService.win32MutexName}-updating`;
+			const readyMutexName = `${productService.win32MutexName}setup`;
 			const mutex = await import('@vscode/windows-mutex');
-			return mutex.isActive(updatingMutexName);
+			return mutex.isActive(readyMutexName);
 		} catch (error) {
 			console.error('Failed to check Inno Setup mutex:', error);
 			return false;

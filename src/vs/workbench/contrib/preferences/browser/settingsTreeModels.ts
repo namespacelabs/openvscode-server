@@ -34,7 +34,7 @@ export interface ISettingsEditorViewState {
 	featureFilters?: Set<string>;
 	idFilters?: Set<string>;
 	languageFilter?: string;
-	categoryFilter?: SettingsTreeGroupElement;
+	filterToCategory?: SettingsTreeGroupElement;
 }
 
 export abstract class SettingsTreeElement extends Disposable {
@@ -471,31 +471,14 @@ export class SettingsTreeSettingElement extends SettingsTreeElement {
 			return true;
 		}
 
-		// Restrict to core settings
-		if (this.setting.extensionInfo) {
-			return false;
-		}
-
-		// Chat settings are now in their own top-level category
-		if (featureFilters.has('chat')) {
-			const chatFeatures = tocData.children!.find(child => child.id === 'chat');
-			if (chatFeatures?.children) {
-				const patterns = chatFeatures.children
-					.flatMap(feature => feature.settings ?? [])
-					.map(setting => createSettingMatchRegExp(setting));
-				if (patterns.some(pattern => pattern.test(this.setting.key))) {
-					return true;
-				}
-			}
-		}
-
 		const features = tocData.children!.find(child => child.id === 'features');
+
 		return Array.from(featureFilters).some(filter => {
-			if (features?.children) {
+			if (features && features.children) {
 				const feature = features.children.find(feature => 'features/' + filter === feature.id);
-				if (feature?.settings) {
-					const patterns = feature.settings.map(setting => createSettingMatchRegExp(setting));
-					return patterns.some(pattern => pattern.test(this.setting.key));
+				if (feature) {
+					const patterns = feature.settings?.map(setting => createSettingMatchRegExp(setting));
+					return patterns && !this.setting.extensionInfo && patterns.some(pattern => pattern.test(this.setting.key.toLowerCase()));
 				} else {
 					return false;
 				}

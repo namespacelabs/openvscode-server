@@ -13,14 +13,15 @@ import { IChatContentPart } from './chatContentParts.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { addDisposableListener } from '../../../../../../base/browser/dom.js';
-import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
+import { IOpenerService } from '../../../../../../platform/opener/common/opener.js';
 
 export class ChatPullRequestContentPart extends Disposable implements IChatContentPart {
 	public readonly domNode: HTMLElement;
 
 	constructor(
 		private readonly pullRequestContent: IChatPullRequestContent,
-		@ICommandService private readonly commandService: ICommandService) {
+		@IOpenerService private readonly openerService: IOpenerService
+	) {
 		super();
 
 		this.domNode = dom.$('.chat-pull-request-content-part');
@@ -32,13 +33,11 @@ export class ChatPullRequestContentPart extends Disposable implements IChatConte
 		icon.classList.add(...ThemeIcon.asClassNameArray(Codicon.gitPullRequest));
 		const titleLink: HTMLAnchorElement = dom.append(titleContainer, dom.$('a.title'));
 		titleLink.textContent = `${this.pullRequestContent.title} - ${this.pullRequestContent.author}`;
-		if (this.pullRequestContent.uri) {
-			titleLink.href = this.pullRequestContent.uri?.toString();
-		}
+		titleLink.href = this.pullRequestContent.uri.toString();
 		this._register(addDisposableListener(titleLink, 'click', (e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			this.commandService.executeCommand(this.pullRequestContent.command.id, ...(this.pullRequestContent.command.arguments ?? []));
+			this.openerService.open(this.pullRequestContent.uri);
 		}));
 	}
 

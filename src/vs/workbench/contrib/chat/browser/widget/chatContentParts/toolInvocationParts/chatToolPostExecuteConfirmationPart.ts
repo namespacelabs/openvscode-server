@@ -87,7 +87,6 @@ export class ChatToolPostExecuteConfirmationPart extends AbstractToolConfirmatio
 			actions.push({
 				label: action.label,
 				tooltip: action.detail,
-				scope: action.scope,
 				data: async () => {
 					const shouldConfirm = await action.select();
 					if (shouldConfirm) {
