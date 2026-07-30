@@ -281,17 +281,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Check out upstream release commit
+      - name: Check out release workflow commit
         uses: actions/checkout@v6
         with:
-          repository: gitpod-io/openvscode-server
-          ref: ${{ inputs.upstream_ref }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Create and push release tag
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_REF: ${{ inputs.upstream_ref }}
         run: |
           set -e
           if git ls-remote --exit-code --tags \
@@ -300,9 +299,22 @@ jobs:
             echo "Tag ${TAG} already exists in ${{ github.repository }}"
             exit 1
           fi
+          git fetch --depth=1 https://github.com/gitpod-io/openvscode-server.git "$UPSTREAM_REF"
+          upstream_commit=$(git rev-parse 'FETCH_HEAD^{commit}')
+
+          # Keep this fork's workflows out of the imported upstream tree. GitHub's
+          # Actions token cannot push commits that add or modify workflow files.
+          git read-tree "${upstream_commit}^{tree}"
+          git rm -r -f --cached --ignore-unmatch .github/workflows
+          git read-tree --prefix=.github/workflows/ "${GITHUB_SHA}:.github/workflows"
+          release_tree=$(git write-tree)
+          release_commit=$(printf 'OpenVSCode Server %s (upstream %s)\n' "$TAG" "$upstream_commit" | \
+            git -c user.name='github-actions[bot]' \
+                -c user.email='github-actions[bot]@users.noreply.github.com' \
+              commit-tree "$release_tree" -p "$GITHUB_SHA")
           git -c user.name='github-actions[bot]' \
               -c user.email='github-actions[bot]@users.noreply.github.com' \
-            tag -a "${TAG}" -m "OpenVSCode Server ${TAG}"
+            tag -a "${TAG}" "$release_commit" -m "OpenVSCode Server ${TAG}"
           git push \
             "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" \
             "refs/tags/${TAG}"
