@@ -188,7 +188,7 @@ jobs:
           DISPLAY: ":10"
 
       - name: Publish Log Files
-        uses: actions/upload-artifact@v6
+        uses: namespace-actions/upload-artifact@v1
         if: always()
         continue-on-error: true
         with:
