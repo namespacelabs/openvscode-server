@@ -1,5 +1,11 @@
 # OpenVSCode Server
 
+> [!NOTE]
+> Namespace releases are built from this fork's `release/vX.Y.Z` branches, which
+> track an exact Gitpod release plus a minimal set of reviewed
+> Namespace changes. See [RELEASE.md](RELEASE.md) for the branch, synchronization,
+> build, and publication workflow.
+
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-908a85?logo=gitpod)](https://gitpod.io/from-referrer)
 [![GitHub](https://img.shields.io/github/license/gitpod-io/openvscode-server)](https://github.com/gitpod-io/openvscode-server/blob/main/LICENSE.txt)
 [![Discord](https://img.shields.io/discord/816244985187008514)](https://www.gitpod.io/chat)
