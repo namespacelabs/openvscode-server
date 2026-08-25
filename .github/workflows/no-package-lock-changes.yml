@@ -31,8 +31,7 @@ jobs:
         id: get_permissions
         if: ${{ steps.lockfile_check.outputs.lockfiles_modified == 'true' && github.event.pull_request.user.login != 'Copilot' }}
         with:
-          route: GET /repos/microsoft/vscode/collaborators/{username}/permission
-          username: ${{ github.event.pull_request.user.login }}
+          route: GET /repos/${{ github.repository }}/collaborators/${{ github.event.pull_request.user.login }}/permission
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Set control output variable

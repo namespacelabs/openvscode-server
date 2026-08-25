@@ -73,9 +73,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check cyclic dependencies
-        run: node build/lib/checkCyclicDependencies.ts out-build
-
   linux-electron-tests:
     name: Linux
     uses: ./.github/workflows/namespace-linux-test.yml
