@@ -275,6 +275,16 @@ jobs:
           npm run gulp core-ci
           npm run gulp extensions-ci
 
+      - name: Cache built-in extensions (Namespace Cache Volume)
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          path: .build/builtInExtensions
+
+      - name: Download built-in extensions
+        run: node build/lib/builtInExtensions.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build web server
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
