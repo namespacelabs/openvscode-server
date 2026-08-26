@@ -113,13 +113,15 @@ Inputs:
   (they expire after 7 days).
 
 The built version comes from the release branch's `package.json`, and the release tag is `openvscode-server-v<version>-<N>`
-(insiders: `openvscode-server-insiders-v<version>-<N>`). The run builds Linux `x64`, Linux `arm64` and macOS `arm64`, and attaches
-all three tarballs to the release:
+(insiders: `openvscode-server-insiders-v<version>-<N>`). The run builds Linux `x64`, Linux `arm64`, macOS `arm64`, Windows `x64`
+and Windows `arm64`, and attaches all five tarballs to the release:
 
 ```text
 <tag>-linux-x64.tar.gz
 <tag>-linux-arm64.tar.gz
 <tag>-darwin-arm64.tar.gz
+<tag>-win32-x64.tar.gz
+<tag>-win32-arm64.tar.gz
 ```
 
 The created tag points at the exact fork commit that was built. The workflow refuses to run if that tag already exists, if the
@@ -232,6 +234,18 @@ macOS arm64:
 
 ```bash
 CXXFLAGS=-DFMT_CONSTEVAL= npm run gulp vscode-reh-web-darwin-arm64-min
+```
+
+Windows x64:
+
+```bash
+npm run gulp vscode-reh-web-win32-x64-min
+```
+
+Windows arm64 (cross-compiles from Windows amd64):
+
+```bash
+npm_config_arch=arm64 npm run gulp vscode-reh-web-win32-arm64-min
 ```
 
 Under Apple Clang 21, the `CXXFLAGS` workaround avoids a vendored fmt compile error in `@vscode/spdlog`. It is harmless on older
