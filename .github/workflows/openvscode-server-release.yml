@@ -147,6 +147,26 @@ jobs:
               - nscloud-cache-tag-ovsc-release-darwin-arm64
             vscode_arch: arm64
             npm_arch: arm64
+          # Namespace has no Windows arm64 runners, so win32-arm64 cross-compiles
+          # on amd64, as Microsoft's own server build does.
+          - os_name: win32
+            runner:
+              - nscloud-windows-2022-amd64-16x32-with-cache
+              - nscloud-cache-size-20gb
+              - nscloud-cache-tag-ovsc-release-win32-x64
+            vscode_arch: x64
+            npm_arch: x64
+          - os_name: win32
+            runner:
+              - nscloud-windows-2022-amd64-16x32-with-cache
+              - nscloud-cache-size-20gb
+              - nscloud-cache-tag-ovsc-release-win32-arm64
+            vscode_arch: arm64
+            npm_arch: arm64
+    defaults:
+      run:
+        # Every step is a shell script; Windows defaults to pwsh.
+        shell: bash
     env:
       OS_NAME: ${{ matrix.os_name }}
       VSCODE_ARCH: ${{ matrix.vscode_arch }}

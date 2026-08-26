@@ -2,8 +2,8 @@ name: Namespace CI
 
 # Fork-owned CI. Self-contained so upstream (microsoft/vscode) syncs stay
 # conflict-free: it does not modify any inherited workflow. Compile and
-# the Linux / macOS unit/integration tests all run on Namespace (nscloud)
-# runners. pr-darwin-test.yml is left unused so vscode syncs stay clean.
+# the Linux / macOS / Windows unit/integration tests all run on Namespace
+# (nscloud) runners. pr-darwin-test.yml is left unused so vscode syncs stay clean.
 
 on:
   pull_request:
@@ -110,6 +110,27 @@ jobs:
   macos-remote-tests:
     name: macOS
     uses: ./.github/workflows/namespace-macos-test.yml
+    with:
+      job_name: Remote
+      remote_tests: true
+
+  windows-electron-tests:
+    name: Windows
+    uses: ./.github/workflows/namespace-windows-test.yml
+    with:
+      job_name: Electron
+      electron_tests: true
+
+  windows-browser-tests:
+    name: Windows
+    uses: ./.github/workflows/namespace-windows-test.yml
+    with:
+      job_name: Browser
+      browser_tests: true
+
+  windows-remote-tests:
+    name: Windows
+    uses: ./.github/workflows/namespace-windows-test.yml
     with:
       job_name: Remote
       remote_tests: true
